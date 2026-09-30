@@ -252,6 +252,10 @@ class ProgressiveScorer:
 
 ### Batida and Bloqueio Scoring
 
+> Exceção confirmada: Na batida com carroça, a dupla recebe 20 pontos mais a pontuação das pontas da última jogada, se houver (soma múltipla de 5). Não se somam as mãos adversárias nesse caso. A pontuação das pontas deve ser creditada uma única vez.
+
+> Exemplo histórico abaixo: não representa as regras vigentes de pontuação em duplas. Na tranca e na batida normal (sem carroça final), a dupla vencedora recebe a soma dos valores das pedras restantes nas mãos dos dois adversários, arredondada para baixo ao múltiplo de 5 mais próximo: `pontos = (soma_adversária // 5) * 5`. Somar as duas mãos antes de arredondar; não incluir a mão do parceiro nem subtrair a soma da dupla vencedora. A implementação deve seguir a especificação 001 atualizada.
+
 ```python
 @dataclass
 class BatidaResult:

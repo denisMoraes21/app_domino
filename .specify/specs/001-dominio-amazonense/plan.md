@@ -16,7 +16,7 @@
 |--------|------------|--------|
 | Linguagem | Python 3.12 | Especificado pelo usuário, suporte moderno a type hints |
 | Testes | pytest | Padrão da indústria, fixtures poderosas, coverage integrado |
-| Interface | CLI (argparse) | Inicial simples, foco em lógica de negócio primeiro |
+| Interface | Web para navegador no computador | Frontend integrado ao motor Python; framework a definir |
 | Validação | Pydantic v2 | Validação de dados com type hints, integração pytest |
 | Linting | ruff + mypy | Formatação rápida e type checking estrito |
 
@@ -50,12 +50,10 @@ src/domino/
 │   ├── repositories/   # Persistência (se necessária)
 │   ├── generators/     # Geradores de peças, embaralhamento
 │   └── __init__.py
-└── interface/          # Camada de Apresentação
-    ├── cli/            # Interface de linha de comando
-    │   ├── main.py     # Entry point
-    │   ├── commands.py # Comandos do CLI
-    │   └── formatters.py # Formatação de saída
-    └── __init__.py
+└── gui/                # Apresentação gráfica PyQt6
+    ├── main.py         # Janela e entry point
+    ├── controllers.py  # Integração com casos de uso
+    └── widgets.py      # Mesa e pedras
 
 tests/
 ├── domain/             # Testes de domínio
@@ -78,7 +76,7 @@ tests/
 | Princípio | Status | Observações |
 |-----------|--------|-------------|
 | I. Python 3.11+ | ✓ ADEQUADO | User especificou Python 3.12 |
-| II. Mesa de Bar | ⚠️ OUT_OF_SCOPE | UI gráfica fora do escopo inicial (CLI primeiro) |
+| II. Mesa de Bar | ✓ PLANEJADO | GUI com mesa e pedras desde a primeira versão |
 | III. Clean Architecture | ✓ PLANEJADO | Arquitetura em camadas definida |
 | III. Testes Primeiros | ✓ PLANEJADO | TDD com pytest, 80% coverage mínimo |
 | IV. Arquitetura Modular | ✓ PLANEJADO | Módulos independentes definidos |
@@ -93,12 +91,12 @@ tests/
 | Sistema progressivo 4 pontas | FR-002, FR-003 | ✓ Definido |
 | Ramos laterais condicionais | FR-005 | ✓ Definido |
 | Passe = 20 pontos | FR-006 | ✓ Definido |
-| Galo = 50 pontos | FR-007, FR-008 | ✓ Definido |
-| Batida esvazia mão | FR-009, FR-010 | ✓ Definido |
-| Vitória 200+ pontos | FR-011 | ✓ Definido |
-| Tranca compara pontos | FR-012, FR-013 | ✓ Definido |
-| 5 carroças = 50 pontos | FR-016 | ✓ Definido |
-| 6 carroças = vitória | FR-017 | ✓ Definido |
+| Passe geral = somente 50 pontos à última dupla; retorna ao último jogador sem encerrar raia | FR-007, FR-008 | ✓ Definido |
+| Batida normal: soma adversária arredondada para baixo em múltiplos de 5 | FR-009, FR-010 | ✓ Definido |
+| Vitória 200+ pontos verificada após batida/tranca e contagem final | FR-011 | ✓ Definido |
+| Tranca compara mãos; vencedora recebe soma adversária arredondada para baixo em múltiplos de 5 | FR-012, FR-013 | ✓ Definido |
+| 5 carroças: aceitação concede 50 pontos à dupla; recusa causa novo embaralhamento e distribuição das 28 pedras sem bônus | FR-016 | ✓ Definido |
+| 6 carroças = jogo normal; 7 carroças na mão de um jogador = vitória automática da dupla | FR-017, FR-017.1 | ✓ Definido |
 
 ---
 
@@ -133,13 +131,13 @@ tests/
 - ✅ Estrutura de dados para mesa com 4 pontas progressivas
 - ✅ Algoritmo de validação de jogadas com ramos laterais
 - ✅ Padrão de implementação para pontuação progressiva
-- ✅ Biblioteca CLI recomendada (argparse vs click vs typer)
+- Interface web para computador definida; framework do frontend a definir
 
 **Decisões do agente de pesquisa** (IMPLEMENTATION_FINDINGS.md):
-1. **GUI Framework**: PyQt6 com QSS (para fase futura de GUI)
+1. **GUI Framework**: Interface web para computador; frontend a definir; protótipo PyQt6 substituído no plano de entrega
 2. **Board Model**: Graph com EndType enum (MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTTOM)
 3. **Scoring**: ProgressiveScorer com eventos de domínio
-4. **CLI**: argparse para simplicidade inicial (sem dependências extras)
+4. **GUI**: controles visuais ligados aos casos de uso, com domínio independente
 
 ---
 
@@ -155,7 +153,7 @@ tests/
 
 #### Mesa (Board)
 - **Fields**: extremidades (dict EndType → value), pedras_jogadas (list)
-- **Validations**: máximo 4 pontas, ramos laterais só após 2 principais
+- **Validations**: máximo 4 pontas, laterais ancoradas na carroça inicial e liberadas somente após uma pedra adicional em cada ramo principal
 - **Methods**: play_piece(piece, target_end), get_available_ends()
 - **State**: EMPTY → ONE_END → TWO_ENDS → FOUR_ENDS
 
@@ -175,7 +173,7 @@ tests/
 
 #### Raia (Round)
 - **Fields**: board, turno_atual, histórico_jogadas, estado
-- **States**: INICIADA, EM_ANDAMENTO, BATIDA, GALO, TRANCA
+- **States**: INICIADA, EM_ANDAMENTO, BATIDA, TRANCA
 - **Methods**: play_piece(), pass_turn(), check_end_conditions()
 
 ### Transições de Estado
@@ -184,62 +182,30 @@ tests/
 Partida:
   INIT → INICIADA (start)
   INICIADA → EM_ANDAMENTO (first piece)
-  EM_ANDAMENTO → BATIDA/GALO/TRANCA (end conditions)
-  BATIDA/GALO/TRANCA → RESULTADO (score calculated)
-  RESULTADO → INICIADA (next round if < 200)
+  EM_ANDAMENTO → BATIDA/TRANCA (end conditions)
+  BATIDA/TRANCA → RESULTADO (score calculated)
+  RESULTADO → INICIADA (nenhuma dupla atingiu 200 ou placares acumulados empatados em 200+)
   RESULTADO → FINALIZADA (winner declared)
 
 Raia:
   INIT → INICIADA (deal pieces)
   INICIADA → EM_ANDAMENTO (first play)
   EM_ANDAMENTO → BATIDA (player empties hand)
-  EM_ANDAMENTO → GALO (all pass)
+  EM_ANDAMENTO → EM_ANDAMENTO (passe geral: outros três passam; somente 50 pontos; último jogador joga novamente)
   EM_ANDAMENTO → TRANCA (blocked, no more plays)
 ```
 
-### Contratos de Interface (CLI)
+### Contratos de Interface Gráfica
 
-#### Comandos Principais
-```
-domino start      # Inicia nova partida
-domino play <piece>  # Joga pedra (ex: "3-5")
-domino pass       # Passa a vez
-domino status     # Mostra estado atual
-domino score      # Mostra pontuação
-domino quit       # Encerra partida
-```
+- Selecionar pedra e ponta visualmente e executar o caso de uso de jogada.
+- Exibir mesa, turno, placar das duplas e eventos recebidos do motor.
+- Oferecer controles de nova partida, passe e decisão de cinco carroças.
+- Há duas formas de participação, com o mesmo conjunto de regras e sempre quatro jogadores em duas duplas: solo (um humano e três jogadores controlados pelo computador, incluindo seu parceiro) e multiplayer (quatro pessoas, cada uma em seu próprio dispositivo). Não há alternância de pessoas no mesmo computador como modalidade prevista.
+- Cada jogador vê apenas sua própria mão, a mesa e as informações públicas da partida. A mão do parceiro também é privada. Os jogadores controlados pelo computador devem decidir usando sua própria mão e as informações públicas, sem acesso às mãos alheias.
 
-#### Saída Formatada
-- Estado da mesa: mostra 4 pontas com valores
-- Mão do jogador: lista pedras disponíveis
-- Pontuação: por dupla com histórico
-- Validação: mensagens claras de erro
+### Validação da GUI
 
-### Quickstart de Validação
-
-**Pré-requisitos**:
-```bash
-python 3.12+ instalado
-pip install pytest pydantic ruff mypy
-```
-
-**Setup**:
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-**Executar testes**:
-```bash
-pytest tests/ --cov=src/domino --cov-report=term-missing
-```
-
-**Jogar partida de teste**:
-```bash
-python -m domino.interface.cli.main start
-# Interagir via comandos CLI
-```
+Implementar frontend e serviço web, validar acesso por navegador e testar uma partida completa pela tela. A GUI atual é um protótipo, sem integração suficiente para esse fluxo.
 
 ---
 
@@ -292,8 +258,8 @@ python -m domino.interface.cli.main start
 **Critério de Aceite**:
 - Game inicia com embaralhamento e distribuição
 - PlayPiece valida e executa jogada
-- PassTurn marca 20 pontos para adversários
-- CalculateRound detecta batida/galo/tranca
+- PassTurn aplica passe comum de 20, segundo passe de 0 ou passe geral de somente 50 pontos conforme a sequência
+- CalculateRound detecta batida/tranca; passe geral é tratado durante a raia
 
 ### Iteração 4: Condições de Término
 
@@ -307,9 +273,14 @@ python -m domino.interface.cli.main start
 
 **Critério de Aceite**:
 - Batida detecta hand vazia
-- Galo detecta 4 passes consecutivos
-- Tranca resolve empate por pontos na mão
-- Vitória verifica ≥ 200 pontos
+- Na batida com carroça, a dupla recebe 20 pontos mais a pontuação das pontas da última jogada, se houver (soma múltipla de 5). Não se somam as mãos adversárias nesse caso. A pontuação das pontas deve ser creditada uma única vez.
+- Batida normal e tranca: somar as duas mãos adversárias e arredondar o total para baixo em múltiplos de 5; excluir a mão do parceiro e não usar diferença de mãos
+- Passe comum vale 20; segundo passe consecutivo vale 0
+- Galo exige que o autor da última jogada possa jogar novamente após os passes dos outros três jogadores; totaliza somente 50 pontos para a última dupla que jogou e retorna ao mesmo jogador sem encerrar a raia
+- Quatro jogadores sem jogada: jogo fechado (tranca), sem bônus de galo
+- Após tranca, a próxima raia começa com quem receber o 6-6, jogando essa pedra
+- Tranca compara somas brutas das mãos por dupla; em igualdade, nenhuma dupla pontua e o placar acumulado permanece inalterado
+- Vitória por pontuação verifica ≥ 200 somente após batida/tranca e contagem final; atingir a meta durante a raia não interrompe o jogo
 
 ### Iteração 5: Infraestrutura
 
@@ -325,21 +296,16 @@ python -m domino.interface.cli.main start
 - Shuffler usa Fisher-Yates ou equivalente
 - Dealer distribui 7 peças cada, aleatoriamente
 
-### Iteração 6: Interface CLI
+### Iteração 6: Interface Gráfica
 
-**Objetivo**: Jogo jogável via terminal
+**Objetivo**: Jogo completo pela tela, pelo navegador no computador.
 
-- [ ] `interface/cli/main.py` - Entry point argparse
-- [ ] `interface/cli/commands.py` - Comandos do CLI
-- [ ] `interface/cli/formatters.py` - Formatação de saída
-- [ ] `tests/interface/` - Testes de CLI
-- [ ] `requirements.txt` - Dependências
+- [ ] Implementar frontend web e API/serviço de sessão ligados ao motor Python
+- [ ] Implementar mesa, pedras, seleção de ponta, passe e placar
+- [ ] Oferecer decisão de cinco carroças e transição entre raias
+- [ ] Validar interação, renderização e execução após instalação
 
-**Critério de Aceite**:
-- Comandos start, play, pass, status, score, quit
-- Saída formatada legível
-- Validação de input do usuário
-- Mensagens de erro claras
+**Critério de Aceite**: Partida completa operada por controles visuais, com regras aplicadas pelo motor e atualização de turno, mesa e placar.
 
 ### Iteração 7: Polish e Documentação
 
@@ -372,7 +338,7 @@ python -m domino.interface.cli.main start
 | Complexidade da estrutura de 4 pontas | Alto | Prototipar Board primeiro, testar extensivamente |
 | Regras de ramos laterais | Médio | Documentar fluxos com diagramas, validar com regras oficiais |
 | Detecção de galo/tranca | Médio | Testes de integração com cenários completos |
-| Balanceamento CLI vs futura GUI | Baixo | Manter domain/application independentes de interface |
+| Integração entre motor e GUI | Baixo | Manter domain/application independentes de interface |
 
 ---
 
@@ -382,3 +348,15 @@ python -m domino.interface.cli.main start
 2. **Implementar Iteração 1** (entidades básicas) com TDD
 3. **Executar testes** após cada entidade
 4. **Revisar e iterar** antes de prosseguir para próxima iteração
+
+## Integração dos participantes
+
+- O jogador entra escolhendo um apelido, sem cadastro, login ou senha. No multiplayer, pode criar uma sala ou informar o código de uma sala existente. Manter sessão anônima para reconexão, separada do nome de exibição.
+
+- Durante a partida, se um jogador humano perder a conexão, um jogador controlado pelo computador assume seu lugar, preservando mão, dupla e estado da partida. Cada jogada tem limite de 20 segundos. Ao esgotar os 20 segundos, o computador executa uma jogada válida pelo jogador naquele turno. Se não houver jogada válida, executa o passe conforme as regras do jogo. Para um humano ainda conectado, essa ação automática não transfere permanentemente o controle ao computador. Após reconectar, o humano retoma sua mesma posição no início do próximo turno que lhe couber, preservando mão, dupla e estado atual. A reconexão não desfaz jogadas já realizadas pelo computador nem interrompe o turno em andamento.
+
+- O multiplayer começa pela criação de uma sala. A sala reúne quatro jogadores humanos, cada um no navegador de seu computador, para uma partida em duas duplas. Ao criar a sala, o sistema gera e exibe um código. Os demais jogadores entram informando esse código na interface web. No multiplayer, os próprios jogadores escolhem suas duplas na sala antes do início da partida. Cada dupla deve ter exatamente dois jogadores; a partida só pode começar com as duas duplas completas. As duplas permanecem fixas durante a partida. Quando os quatro jogadores estiverem na sala e houver exatamente dois em cada dupla, o sistema embaralha e distribui automaticamente as 28 pedras, sete por jogador, sem comando do criador da sala. Aplicam-se as regras de cinco, seis e sete carroças antes da primeira jogada; na primeira raia, quem receber o 6-6 inicia jogando essa pedra.
+
+- Implementar adaptadores de participante humano e computador sobre os mesmos casos de uso.
+- Planejar uma autoridade única para validar jogadas e distribuir o estado público e as mãos privadas no multiplayer. Dispositivos definidos: computadores com navegador. Transporte e hospedagem ainda precisam ser definidos.
+- Não considerar rede ou IA implementadas pelo protótipo gráfico existente.

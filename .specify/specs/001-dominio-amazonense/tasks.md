@@ -57,7 +57,7 @@ description: "Task list para implementação do Domino Amazonense"
 ### Tests for User Story 1
 
 - [ ] T013 [P] [US1] Criar `tests/domain/entities/test_piece.py` com testes para Piece: is_doble, matches, get_matching_side, flip, total, validação 0-6
-- [ ] T014 [P] [US1] Criar `tests/domain/entities/test_board.py` com testes para Board: is_empty, play_piece, get_end_value, get_available_ends, evolução 1→2→4 pontas
+- [ ] T014 [P] [US1] Criar `tests/domain/entities/test_board.py` com testes para Board: is_empty, play_piece, get_end_value, get_available_ends, laterais bloqueadas na abertura e após múltiplas pedras em um único ramo; liberadas após pedra em cada principal; primeira pedra lateral encaixa no naipe da carroça inicial
 - [ ] T015 [P] [US1] Criar `tests/application/services/test_validator.py` com testes para MoveValidator: can_play com diferentes cenários de pontas
 - [ ] T016 [US1] Criar teste de integração para fluxo completo: jogador joga pedra válida → pedra aceita → pontas atualizadas em `tests/application/use_cases/test_play_piece.py`
 
@@ -65,7 +65,7 @@ description: "Task list para implementação do Domino Amazonense"
 
 - [ ] T017 [P] [US1] Implementar entidade `Piece` em `src/domino/domain/entities/piece.py` com side_a, side_b (0-6), is_doble(), matches(), get_matching_side(), flip(), total()
 - [ ] T018 [P] [US1] Implementar enum `EndType` em `src/domino/domain/entities/board.py` com MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTTOM
-- [ ] T019 [P] [US1] Implementar entidade `Board` em `src/domino/domain/entities/board.py` com _ends dict, _pieces_played, play_piece(), get_end_value(), get_available_ends(), is_lateral_unlocked()
+- [ ] T019 [P] [US1] Implementar entidade `Board` em `src/domino/domain/entities/board.py` com _ends dict, _pieces_played, play_piece(), get_end_value(), get_available_ends(), is_lateral_unlocked(); rastrear ocupação dos dois ramos principais além da carroça e ancorar as laterais na carroça inicial
 - [ ] T020 [US1] Implementar `MoveValidator` em `src/domino/application/services/validator.py` com can_play(piece, board, target_end) retornando (bool, str)
 - [ ] T021 [P] [US1] Criar value object `Score` em `src/domino/domain/value_objects/score.py` com validação value >= 0 e método is_multiple_of_5()
 - [ ] T022 [US1] Criar eventos de domínio em `src/domino/domain/events/game_events.py`: PiecePlayedEvent com player_id, piece, target_end, board_state, scored, points_earned
@@ -99,23 +99,23 @@ description: "Task list para implementação do Domino Amazonense"
 
 ## Phase 5: User Story 3 - Passar quando não há jogada disponível (Priority: P2)
 
-**Goal**: Permitir passe quando jogador não tem pedras jogáveis, marcando 20 pontos para adversários
+**Goal**: Permitir passe quando jogador não tem pedras jogáveis, aplicando passe comum de 20, segundo passe consecutivo de 0 e passe geral de somente 50 pontos
 
-**Independent Test**: Ao passar, verificar que dupla adversária recebe 20 pontos e vez muda
+**Independent Test**: Verificar pontuação por sequência de passes, retorno ao último jogador no passe geral e continuidade da raia
 
 ### Tests for User Story 3
 
-- [ ] T030 [P] [US3] Criar `tests/application/use_cases/test_pass_turn.py` com testes para: passe válido sem jogáveis, passe inválido com jogáveis, passe resulta em 20 pontos para adversários
-- [ ] T031 [P] [US3] Criar testes para detecção de galo: 4 passes consecutivos → 50 pontos
+- [ ] T030 [P] [US3] Criar `tests/application/use_cases/test_pass_turn.py` com testes para: passe válido sem jogáveis, passe inválido com jogáveis, passe comum de 20 para adversários, segundo passe consecutivo sem pontos, nova jogada reinicia a sequência
+- [ ] T031 [P] [US3] Criar testes para detecção de galo: os outros três jogadores passam e o último autor pode jogar novamente → somente 50 pontos para a dupla da última jogada (substituindo os 20 da sequência), retorno ao mesmo jogador, raia continua e evento não pontua duas vezes
 
 ### Implementation for User Story 3
 
 - [ ] T032 [P] [US3] Implementar entidade `Player` em `src/domino/domain/entities/player.py` com id, name, pair_id, hand, has_playable_piece(board), get_playable_pieces(board), play(piece, target_end), pass_turn(), get_hand_value(), add_piece(piece)
 - [ ] T033 [P] [US3] Implementar entidade `Pair` em `src/domino/domain/entities/pair.py` com id, players (2 jogadores), total_score, add_points(points), get_total_hand_points(), has_playable_piece(board)
-- [ ] T034 [US3] Implementar `PassTurn` use case em `src/domino/application/use_cases/pass_turn.py` retornando pontos concedidos (20) e validando se jogador tem jogável disponível (caso contrário, vitória adversária)
-- [ ] T035 [US3] Implementar `GaloDetector` em `src/domino/application/use_cases/check_galo.py` com registro de passes consecutivos e detecção quando >= 4
-- [ ] T036 [US3] Integrar detecção de galo: após cada passe, verificar galo, aplicar 50 pontos se detectado
-- [ ] T037 [US3] Adicionar TurnPassedEvent em `game_events.py` com player_id, is_galo, points_awarded
+- [ ] T034 [US3] Implementar `PassTurn` use case em `src/domino/application/use_cases/pass_turn.py` retornando ajustes de placar por dupla conforme passe comum, segundo passe consecutivo ou passe geral e validando se jogador tem jogável disponível (caso contrário, vitória adversária)
+- [ ] T035 [US3] Implementar `GaloDetector` em `src/domino/application/use_cases/check_galo.py` registrando o autor da última jogada e detectando os passes consecutivos dos outros três jogadores e verificando que o autor da última jogada ainda pode jogar antes de conceder galo
+- [ ] T036 [US3] Integrar detecção de galo: após cada passe, verificar galo, substituir os pontos de passe da sequência por somente 50 para a dupla da última jogada; retornar ao autor dessa jogada e manter a raia em andamento
+- [ ] T037 [US3] Adicionar TurnPassedEvent em `game_events.py` com player_id, is_galo, score_adjustments_by_pair, next_player_id
 
 **Checkpoint**: US3 completa - passe e galo funcionando
 
@@ -129,14 +129,14 @@ description: "Task list para implementação do Domino Amazonense"
 
 ### Tests for User Story 4
 
-- [ ] T038 [P] [US4] Criar `tests/application/use_cases/test_batida.py` com testes para: batida com última pedra, batida com "Lá e Lô" (doble nas duas pontas), contagem de pedras restantes
-- [ ] T039 [P] [US4] Criar testes para cálculo de pontos da raia: batida normal, batida com doble final, contagem de pontos adversários
+- [ ] T038 [P] [US4] Criar `tests/application/use_cases/test_batida.py` com testes para: batida com última pedra, contagem de pedras restantes
+- [ ] T039 [P] [US4] Criar testes para cálculo de pontos da raia: batida normal; carroça final com pontas de 10 → total 30, sem pontas pontuáveis → total 20, sempre excluindo mãos adversárias e evitando crédito duplicado das pontas; na batida normal, contagem das duas mãos adversárias somadas antes do arredondamento para baixo ao múltiplo de 5; excluir mão do parceiro; testar totais 0, 4, 5, 35, 37 e 40
 
 ### Implementation for User Story 4
 
 - [ ] T040 [P] [US4] Implementar `BatidaDetector` em `src/domino/application/use_cases/check_batida.py` com método has_batida(player) verificando hand vazia
-- [ ] T041 [P] [US4] Implementar lógica de batida especial em `BatidaDetector`: detectar bônus de 20 pontos quando último jogo é carroça (doble)
-- [ ] T042 [US4] Implementar `CalculateRoundScore` em `src/domino/application/use_cases/calculate_round.py` contando pedras restantes dos adversários e calculando pontos
+- [ ] T041 [P] [US4] Implementar lógica de batida especial em `BatidaDetector`: detectar carroça final e conceder 20 pontos mais eventual pontuação das pontas da última jogada, sem contagem das mãos adversárias e sem duplicar pontos já creditados pela jogada
+- [ ] T042 [US4] Implementar `CalculateRoundScore` em `src/domino/application/use_cases/calculate_round.py` somando os valores das pedras restantes dos dois adversários e concedendo `(soma_adversária // 5) * 5` à dupla que bateu sem carroça final; não incluir o parceiro. Para carroça final, aplicar somente 20 mais eventual pontuação das pontas
 - [ ] T043 [US4] Adicionar BatidaEvent em `game_events.py` com player_id, piece, round_points, adversaries_hand_values
 - [ ] T044 [US4] Integrar verificação de batida após cada jogada válida
 
@@ -152,16 +152,16 @@ description: "Task list para implementação do Domino Amazonense"
 
 ### Tests for User Story 5
 
-- [ ] T045 [P] [US5] Criar `tests/application/use_cases/test_victory.py` com testes para: vitória ao atingir 200+, vitória ao exceder 200, partida continua abaixo de 200
+- [ ] T045 [P] [US5] Criar `tests/application/use_cases/test_victory.py` com testes para: atingir ou exceder 200 durante a raia não a encerra; vitória por pontuação verificada após batida ou tranca e contabilização final; partida continua abaixo de 200; preservar exceção de 7 carroças
 - [ ] T046 [P] [US5] Criar testes para múltiplas raias até vitória
 
 ### Implementation for User Story 5
 
-- [ ] T047 [P] [US5] Implementar entidade `Round` em `src/domino/domain/entities/round.py` com board, current_player_id, players, play_history, consecutive_passes, state (enum), winner_pair_id
+- [ ] T047 [P] [US5] Implementar entidade `Round` em `src/domino/domain/entities/round.py` com board, current_player_id, players, play_history, consecutive_passes, last_playing_player_id, last_playing_pair_id, pass_sequence_score, state (enum), winner_pair_id
 - [ ] T048 [P] [US5] Implementar entidade `Match` em `src/domino/domain/entities/match.py` com pairs (2), current_round, state, rounds_played, first_batida_pair_id
-- [ ] T049 [P] [US5] Implementar enum `RoundState` em `src/domino/domain/entities/round.py` com INIT, DEALT, IN_PROGRESS, BATIDA, GALO, TRANCA
+- [ ] T049 [P] [US5] Implementar enum `RoundState` em `src/domino/domain/entities/round.py` com INIT, DEALT, IN_PROGRESS, BATIDA, TRANCA
 - [ ] T050 [P] [US5] Implementar enum `MatchState` em `src/domino/domain/entities/match.py` com INIT, IN_PROGRESS, FINISHED
-- [ ] T051 [P] [US5] Implementar enum `RoundEndReason` em `src/domino/domain/entities/round.py` com BATIDA, GALO, TRANCA
+- [ ] T051 [P] [US5] Implementar enum `RoundEndReason` em `src/domino/domain/entities/round.py` com BATIDA, TRANCA
 - [ ] T052 [US5] Implementar `VictoryChecker` em `src/domino/application/use_cases/check_victory.py` verificando >= 200 pontos ao final de raia
 - [ ] T053 [US5] Implementar `Match.start()` e `Match.start_next_round()` para gerenciar fluxo de raias
 - [ ] T054 [US5] Adicionar RoundEndedEvent e MatchEndedEvent em `game_events.py`
@@ -175,22 +175,22 @@ description: "Task list para implementação do Domino Amazonense"
 
 **Goal**: Resolver tranca comparando pontos nas mãos das duplas (maior soma perde)
 
-**Independent Test**: Jogo travado → todos passaram → ganha quem tem menos pontos → diferença transferida para vencedor
+**Independent Test**: Jogo travado → todos passaram → ganha quem tem menos pontos → soma das mãos adversárias arredondada para baixo em múltiplos de 5 concedida à dupla vencedora
 
 ### Tests for User Story 6
 
-- [ ] T056 [P] [US6] Criar `tests/application/use_cases/test_tranca.py` com testes para: tranca normal (maior soma perde), tranca empatada (último a jogar perde), diferença arredondada para baixo
-- [ ] T057 [P] [US6] Criar testes para tranca com ambas duplas >= 200 pontos exigindo raia extra
-- [ ] T058 [P] [US6] Criar testes para diferença de pontos não múltipla de 5 (arredondamento para baixo)
+- [ ] T056 [P] [US6] Criar `tests/application/use_cases/test_tranca.py` com testes para: tranca normal (maior soma perde), tranca empatada (nenhuma dupla pontua, independentemente da última jogada), soma das mãos adversárias arredondada para baixo
+- [ ] T057 [P] [US6] Criar testes de empate de placar 200–200 e 215–215 após batida ou tranca: raia extra com placar preservado; repetir em empates subsequentes; liderança durante a raia extra não encerra a partida
+- [ ] T058 [P] [US6] Criar testes para soma das duas mãos adversárias não múltipla de 5 (arredondamento do total para baixo); exemplo: dupla vencedora com 20, perdedora com 37 → 35 pontos concedidos
 
 ### Implementation for User Story 6
 
 - [ ] T059 [P] [US6] Implementar `TrancaResolver` em `src/domino/application/use_cases/check_tranca.py` comparando soma conjunta de pontos nas mãos de cada dupla
-- [ ] T060 [US6] Implementar lógica de empate em tranca: quem jogou por último (última jogada válida antes dos passes) perde
-- [ ] T061 [US6] Implementar lógica de arredondamento: se diferença não for múltipla de 5, arredondar para baixo
-- [ ] T062 [US6] Implementar lógica de raia extra: se ambas duplas >= 200 e empatarem em tranca, iniciar nova raia imediatamente
-- [ ] T063 [US6] Adicionar TrancaEvent em `game_events.py` com winning_pair_id, losing_pair_hand_value, points_transferred
-- [ ] T064 [US6] Integrar detecção de tranca: após galo sem batida, chamar TrancaResolver
+- [ ] T060 [US6] Implementar empate em tranca comparando somas brutas das duas duplas: se iguais, nenhuma vencedora e 0 pontos para ambas; preservar placar acumulado. Testar últimas jogadas de ambas as duplas e mãos 31/34, que não são empate apesar do mesmo múltiplo de 5 após arredondamento
+- [ ] T061 [US6] Implementar pontuação da tranca: conceder `(soma_das_mãos_da_dupla_perdedora // 5) * 5` à dupla vencedora, sem subtrair as mãos da vencedora
+- [ ] T062 [US6] Implementar raia extra para placares acumulados iguais e de 200+ após batida ou tranca e contagem final; preservar placar e repetir enquanto houver empate ao fim das raias. Abertura pelo batido após batida ou pelo portador do 6-6 após tranca
+- [ ] T063 [US6] Adicionar TrancaEvent em `game_events.py` com winning_pair_id, losing_pair_hand_value, points_awarded
+- [ ] T064 [US6] Integrar detecção de tranca quando nenhum dos quatro jogadores pode jogar; não encerrar a raia pelo passe geral. Se o autor da última jogada também não puder jogar, os quatro passes são jogo fechado, sem bônus de 50 de galo. Incluir teste que impeça o crédito antecipado de galo nesse cenário
 
 **Checkpoint**: US6 completa - tranca e empates resolvidos
 
@@ -204,37 +204,37 @@ description: "Task list para implementação do Domino Amazonense"
 - [ ] T066 [P] Implementar `Shuffler` em `src/domino/infrastructure/generators/shuffler.py` com Fisher-Yates shuffle
 - [ ] T067 [US1] Implementar `Dealer` em `src/domino/infrastructure/generators/dealer.py` distribuindo 7 pedras aleatoriamente para cada jogador
 - [ ] T068 [US5] Implementar lógica de distribuição inicial: identificar quem tem 6-6 e definir como primeiro jogador
-- [ ] T069 [US5] Implementar lógica de distribuição para raias posteriores: quem bateu na raia anterior inicia
+- [ ] T069 [US5] Implementar lógica de distribuição para raias posteriores: após batida, quem bateu inicia; após tranca, quem receber o 6-6 inicia com ele. Incluir testes de ambas as aberturas
 
 ---
 
-## Phase 10: Special Cases (5/6 carroças iniciais)
+## Phase 10: Special Cases (5/6/7 carroças iniciais)
 
 **Purpose**: Bônus e vitória imediata para carroças iniciais
 
-- [ ] T070 [P] Implementar verificação de 5 carroças iniciais em `src/domino/application/use_cases/check_initial_bonus.py` → 50 pontos imediatos
-- [ ] T071 [P] Implementar verificação de 6 carroças iniciais em `src/domino/application/use_cases/check_initial_bonus.py` → vitória imediata da partida
-- [ ] T072 Adicionar InitialBonusEvent em `game_events.py` com player_id, caroca_count, bonus_points
+- [ ] T070 [P] Implementar verificação de 5 carroças iniciais em `src/domino/application/use_cases/check_initial_bonus.py` → solicitar aceitação ou recusa ao jogador; conceder 50 pontos à sua dupla somente após aceitar. Na recusa, recolher as 28 pedras, embaralhar e distribuir novamente 7 por jogador, sem conceder o bônus. Testar decisão pendente, aceitação sem bônus duplicado, recusa sem alteração do placar e conservação das 28 pedras únicas após redistribuição
+- [ ] T071 [P] Implementar avaliação exata de carroças iniciais em `src/domino/application/use_cases/check_initial_bonus.py`: 6 → jogo normal, sem bônus ou recusa; 7 na mão de um jogador → vitória automática da dupla, independentemente do placar. Incluir testes distintos para 5, 6 e 7 carroças
+- [ ] T072 Adicionar InitialBonusEvent em `game_events.py` com player_id, caroca_count, bonus_points; representar separadamente vitória automática da dupla por 7 carroças, sem inventar valor de bônus
 
 ---
 
-## Phase 11: Interface CLI
+## Phase 11: Interface Gráfica
 
-**Purpose**: Interface interativa via terminal com argparse
+**Purpose**: Entregar jogo na tela com estilo mesa de bar. A interface será web para navegador no computador; o protótipo PyQt6 não faz parte da entrega.
 
-- [ ] T073 Criar estrutura CLI em `src/domino/interface/cli/` com `__init__.py`, `main.py`, `commands.py`, `formatters.py`
-- [ ] T074 [P] [US1] Implementar `create_cli()` em `src/domino/interface/cli/main.py` com argparse configurando subcommands: start, play, pass, status, score, quit
-- [ ] T075 [US1] Implementar `play_piece_command(piece_str)` em `src/domino/interface/cli/commands.py` parseando "X-Y" e chamando play_piece
-- [ ] T076 [US3] Implementar `pass_command()` em `src/domino/interface/cli/commands.py` executando passe
-- [ ] T077 [US1] Implementar `status_command()` em `src/domino/interface/cli/commands.py` mostrando estado da mesa (4 pontas) e pedras jogadas
-- [ ] T078 [US2] Implementar `score_command()` em `src/domino/interface/cli/commands.py` mostrando pontuação por dupla e histórico
-- [ ] T079 [US5] Implementar `start_command()` em `src/domino/interface/cli/commands.py` iniciando nova partida com distribuição
-- [ ] T080 [US5] Implementar `quit_command()` em `src/domino/interface/cli/commands.py` mostrando pontuação final
-- [ ] T081 [P] Implementar formatação de mesa em `src/domino/interface/cli/formatters.py` com visualização ASCII das 4 pontas
-- [ ] T082 [P] Implementar formatação de mão do jogador em `src/domino/interface/cli/formatters.py` listando pedras disponíveis
-- [ ] T083 [P] Implementar formatação de mensagens de evento em `src/domino/interface/cli/formatters.py` (batida, galo, tranca, pontos)
-- [ ] T084 Criar `tests/interface/cli/test_commands.py` com testes de CLI (mockando lógica de domínio)
-- [ ] T085 Criar `tests/interface/cli/test_formatters.py` com testes de formatação de saída
+- [ ] T073 Criar frontend web e camada de serviço Python, mantendo regras no domínio e nos casos de uso
+- [ ] T074 [P] [US1] Configurar inicialização do serviço web e carregamento da interface pelo navegador no computador
+- [ ] T075 [US1] Conectar seleção visual de pedra e ponta à execução da jogada
+- [ ] T076 [US3] Conectar botão de passe às regras de passe, passe geral e tranca
+- [ ] T077 [US1] Exibir mesa e laterais conforme estado do motor
+- [ ] T078 [US2] Exibir placar por dupla e atualização após cada evento
+- [ ] T079 [US5] Implementar controle de nova partida e decisão visual de aceitar/recusar cinco carroças
+- [ ] T080 [US5] Exibir encerramento da raia, próxima abertura e resultado da partida
+- [ ] T081 [P] Implementar renderização web e orientação das pedras, incluindo carroças e valores de encaixe
+- [ ] T082 [P] Implementar visão privada da própria mão e visão pública da mesa nos modos solo e multiplayer, sem exibir a mão do parceiro
+- [ ] T083 [P] Mostrar mensagens de passe, galo, tranca, batida e validação de jogadas
+- [ ] T084 Criar testes de integração entre ações gráficas e motor, cobrindo turno, mesa e placar
+- [ ] T085 Validar visualmente mesa, pedras, controles e legibilidade dos estados principais
 
 ---
 
@@ -250,7 +250,7 @@ description: "Task list para implementação do Domino Amazonense"
 - [ ] T091 Atualizar `README.md` com instruções completas de uso
 - [ ] T092 Executar `pytest tests/ --cov=src/domino --cov-report=term-missing` e garantir >= 80% coverage
 - [ ] T093 Executar cenários de validação do `quickstart.md` end-to-end
-- [ ] T094 Criar script `.specify/scripts/run.sh` para iniciar CLI rapidamente
+- [ ] T094 Criar script `.specify/scripts/run.sh` para iniciar a GUI rapidamente
 - [ ] T095 Criar script `.specify/scripts/test.sh` para rodar testes com coverage
 - [ ] T096 Configurar pre-commit hooks em `.pre-commit-config.yaml` com ruff e mypy
 
@@ -265,7 +265,7 @@ description: "Task list para implementação do Domino Amazonense"
 - **User Stories (Phase 3-8)**: Todas dependem de Foundational completion
 - **Infrastructure (Phase 9)**: Pode ser feita em paralelo com US1-US4
 - **Special Cases (Phase 10)**: Depende de US1 (Piece entity) e US5 (Match entity)
-- **CLI (Phase 11)**: Depende de todas as user stories completas
+- **GUI (Phase 11)**: Depende de todas as user stories completas
 - **Polish (Phase 12)**: Depende de todas as outras fases
 
 ### User Story Dependencies
@@ -278,7 +278,7 @@ description: "Task list para implementação do Domino Amazonense"
 - **US6 (P3)**: Depende de US5 (Match e Round entities)
 - **Infrastructure**: Pode rodar em paralelo com US1-US4
 - **Special Cases**: Depende de US1 e US5
-- **CLI**: Depende de todas as US
+- **GUI**: Depende de todas as US
 
 ### Parallel Opportunities
 
@@ -292,7 +292,7 @@ description: "Task list para implementação do Domino Amazonense"
 - **US6**: T056-T058 (tests) em paralelo; T059-T064 (impl) podem ser agrupados
 - **Infrastructure**: T065-T069 podem rodar em paralelo
 - **Special Cases**: T070-T072 podem rodar em paralelo
-- **CLI**: T084-T085 (tests) em paralelo; formatters (T081-T083) em paralelo
+- **GUI**: T084-T085 (tests) em paralelo; widgets e mensagens (T081-T083) em paralelo
 - **Polish**: T086-T087, T088-T089, T090-T096 podem ser agrupados
 
 ---
@@ -320,8 +320,8 @@ description: "Task list para implementação do Domino Amazonense"
 6. Add US5: Vitória da partida → testar independente
 7. Add US6: Tranca → testar independente
 8. Add Infrastructure: Geradores completados
-9. Add Special Cases: Bônus 5/6 carroças
-10. Add CLI: Interface interativa
+9. Add Special Cases: Bônus 5/6/7 carroças
+10. Add GUI: Interface gráfica jogável
 11. Polish: Linting, docs, coverage
 
 ### Parallel Team Strategy
@@ -332,7 +332,7 @@ Com múltiplos desenvolvedores:
 2. Dev B: US1 + US2 (core gameplay)
 3. Dev C: US3 + US4 (passe, batida, galo)
 4. Dev D: Infrastructure + US5 + US6
-5. Todos: CLI colaborativa
+5. Todos: GUI integrada
 6. Todos: Polish conjunto
 
 ---
@@ -351,7 +351,7 @@ Com múltiplos desenvolvedores:
 - Phase 8 (US6 - Tranca): 7 tasks
 - Phase 9 (Infrastructure): 5 tasks
 - Phase 10 (Special Cases): 3 tasks
-- Phase 11 (CLI): 13 tasks
+- Phase 11 (GUI): 13 tasks
 - Phase 12 (Polish): 11 tasks
 
 **Tasks with [P]**: ~45 tasks paralelizáveis
@@ -368,3 +368,19 @@ Com múltiplos desenvolvedores:
 - Linting e type checking estritos (ruff + mypy)
 - Commit após cada tarefa ou grupo lógico
 - Validar com quickstart.md ao final de cada fase principal
+
+## Complemento: participação solo e multiplayer
+
+- [ ] P001 Definir frontend web, hospedagem e alcance da rede; plataforma já definida como navegador no computador
+- [ ] P002 Implementar participante controlado pelo computador usando somente a própria mão e informações públicas; definir dificuldade
+- [ ] P003 Conectar um humano e três participantes de computador ao mesmo motor de regras
+- [ ] P004 Implementar criação de sala para quatro humanos, exibir seu código e permitir entrada por código; validar código inexistente e sala cheia. Implementar escolha de duplas pelos jogadores antes do início, limitando cada dupla a dois e exigindo ambas completas; iniciar uma única distribuição automática de sete pedras por jogador ao reunir os quatro em duas duplas, sem botão de início; aplicar regras de carroças iniciais e abertura com 6-6; na desconexão durante a partida, substituir por computador mantendo mão, dupla e estado
+- [ ] P005 Implementar sincronização de partida para quatro dispositivos e validação central das ações
+- [ ] P006 Criar visões por participante que não transmitam mãos alheias, incluindo a do parceiro
+- [ ] P007 Validar partida completa solo e partida em quatro dispositivos, incluindo privacidade e sincronização
+
+- [ ] P008 Implementar substituição de humano desconectado por computador, preservando posição, mão, dupla e estado; testar continuidade sem redistribuição
+- [ ] P009 Implementar prazo de 20 segundos por jogada no serviço da partida e contador na interface; no vencimento, executar uma jogada válida automaticamente ou passe se não houver jogada; preservar o controle do humano conectado nos turnos seguintes. Validar no serviço que ação humana e timeout concorrentes não executem duas jogadas no mesmo turno
+- [ ] P010 Implementar retomada do humano reconectado no próximo turno que lhe couber, preservando posição, mão, dupla e jogadas já realizadas pelo computador; validar identidade da sessão e impedir ações simultâneas de humano e computador na mesma posição
+
+- [ ] P011 Implementar entrada por apelido sem conta ou senha, com sessão anônima independente para reconexão; testar que repetir apelido não permite assumir a posição nem acessar a mão de outro jogador

@@ -89,142 +89,24 @@ Success: no issues found in 150 files.
 
 ---
 
-## Jogo Interativo via CLI
+## Jogo pela Interface Gráfica
 
-### Iniciar nova partida
+A plataforma de entrega é web para computador: o jogador acessa a interface gráfica pelo navegador, sem instalar um aplicativo desktop. Solo e multiplayer usam essa mesma interface. O protótipo PyQt6 existente não é a interface de entrega. O serviço web e o frontend ainda precisam ser implementados antes de validar uma partida completa.
 
-```bash
-python -m domino.interface.cli.main start
-```
+Fluxo planejado de validação:
 
-**Saída esperada**:
-```
-========================================
-  Domino Amazonense
-========================================
-Nova partida iniciada!
+1. Acessar a aplicação pelo navegador de um computador e informar um apelido, sem cadastro ou senha.
+2. Escolher solo ou multiplayer; no multiplayer, criar uma sala, compartilhar o código e reunir os demais participantes pela opção de entrada por código; cada jogador escolhe sua dupla e ao completar os quatro jogadores e as duas duplas, verificar embaralhamento e distribuição automáticos de sete pedras por jogador, sem botão de início; após resolver as regras de carroças iniciais, o portador do 6-6 faz a primeira jogada.
+3. Selecionar uma pedra e a ponta de destino na mesa.
+4. Conferir atualização da mesa, do turno e do placar.
+5. Validar passe, decisão de cinco carroças e encerramento de raia pelos controles.
+6. Completar a partida sem comandos de terminal.
 
-Dupla A (Jogadores 0 e 2): 0 pontos
-Dupla B (Jogadores 1 e 3): 0 pontos
+Há duas formas de participação, com o mesmo conjunto de regras e sempre quatro jogadores em duas duplas: solo (um humano e três jogadores controlados pelo computador, incluindo seu parceiro) e multiplayer (quatro pessoas, cada uma em seu próprio dispositivo). Não há alternância de pessoas no mesmo computador como modalidade prevista.
 
-Raia 1 - Sua vez!
-Sua mão: [3-5, 6-6, 1-4, 2-2, 0-3, 5-5, 1-6]
+Cada jogador vê apenas sua própria mão, a mesa e as informações públicas da partida. A mão do parceiro também é privada. Os jogadores controlados pelo computador devem decidir usando sua própria mão e as informações públicas, sem acesso às mãos alheias.
 
-Comandos:
-  play <peça>  - Jogar pedra (ex: play 3-5)
-  pass         - Passar a vez
-  status       - Ver estado da mesa
-  score        - Ver pontuação
-  quit         - Sair
-```
-
-### Jogar pedra
-
-```bash
-play 3-5
-```
-
-**Saída esperada**:
-```
-Jogador 0 jogou 3-5 na ponta MAIN_LEFT
-Mesa: [5] — [6-6] — [3]
-Pontuação: Soma = 8 (não múltiplo de 5, sem pontos)
-```
-
-### Ver estado da mesa
-
-```bash
-status
-```
-
-**Saída esperada**:
-```
-Mesa Atual:
-  Ponta Esquerda: 5
-  Ponta Direita: 3
-  Lateral Topo: (vazia)
-  Lateral Base: (vazia)
-  
-Pedras jogadas: 2
-Próximo jogador: Jogador 1
-```
-
-### Ver pontuação
-
-```bash
-score
-```
-
-**Saída esperada**:
-```
-Pontuação da Partida:
-  Dupla A: 0 pontos
-  Dupla B: 0 pontos
-
-Últimos eventos:
-  - Jogador 0: 3-5 (sem pontos)
-```
-
-### Passar a vez
-
-```bash
-pass
-```
-
-**Saída esperada**:
-```
-Jogador 0 passou a vez
-Dupla adversária (B) marcou 20 pontos
-
-Dupla A: 0 pontos
-Dupla B: 20 pontos
-```
-
-### Verificar batida
-
-```
-Quando um jogador joga sua última pedra:
-
-Jogador 2 jogou 1-1
-BATIDA! Jogador 2 esvaziou a mão!
-
-Raia terminada - Batida
-Contagem de pedras restantes:
-  Dupla A: 12 pontos
-  Dupla B: 8 pontos
-  
-Pontos para Dupla A: 20 pontos
-```
-
-### Verificar galo
-
-```
-Quando todos passam consecutivamente:
-
-Jogador 3 passou
-Jogador 0 passou
-Jogador 1 passou
-Jogador 2 passou
-
-GALO! Todos os jogadores passaram!
-Dupla adversária marcou 50 pontos automaticamente
-```
-
-### Sair da partida
-
-```bash
-quit
-```
-
-**Saída esperada**:
-```
-Partida encerrada.
-Pontuação final:
-  Dupla A: 20 pontos
-  Dupla B: 70 pontos
-  
-Obrigado por jogar!
-```
+Validar uma partida solo e outra com quatro dispositivos. Os dispositivos serão computadores com navegador; o alcance da rede ainda será definido; rede e jogadores de computador não estão implementados.
 
 ---
 
@@ -246,23 +128,39 @@ Obrigado por jogar!
 2. Jogador sem jogável passa
 3. Verificar: Dupla adversária marca 20 pontos
 
-### Cenário 3: Galo (todos passam)
+### Cenário 3: Galo (passe geral)
 
-1. Criar situação onde ninguém tem jogadas
-2. Todos 4 jogadores passam consecutivamente
-3. Verificar: Dupla adversária marca 50 pontos
+1. Jogador 0 joga uma pedra e ainda pode jogar quando sua vez retornar
+2. Os jogadores 1, 2 e 3 passam consecutivamente
+3. Verificar: o segundo passe não pontua; a sequência inteira concede somente 50 pontos à dupla do jogador 0
+4. Verificar: a raia continua, sem redistribuição, e o jogador 0 joga novamente
 
 ### Cenário 4: Batida normal
 
 1. Jogar até um jogador ter 1 pedra
 2. Jogar última pedra
-3. Verificar: Contagem de pedras adversárias e pontuação
+3. Verificar: Somar as duas mãos adversárias antes de arredondar para baixo ao múltiplo de 5; 18 + 19 = 37 → 35 pontos de contagem
+
+### Cenário 4b: Batida com carroça
+
+1. Bater com carroça e soma das pontas de 10: total da jogada = 30 pontos (20 + 10)
+2. Repetir sem pontuação nas pontas: total da jogada = 20 pontos
+3. Em ambos os casos, não contar as mãos adversárias nem duplicar a pontuação das pontas
+
+### Cenário 4c: Empate de placar e raia extra
+
+1. Encerrar uma raia por batida ou tranca com placar acumulado 215–215
+2. Verificar nova raia com o placar preservado e abertura conforme o encerramento anterior
+3. Verificar que uma liderança durante a raia extra não encerra a partida
+4. Se o placar empatar novamente ao fim da raia, verificar outra raia extra
 
 ### Cenário 5: Tranca (bloqueio)
 
-1. Criar situação bloqueada sem galo
-2. Sistema detecta tranca
-3. Verificar: Quem tem menos pontos na mão vence
+1. Criar situação em que nenhum dos quatro jogadores consegue jogar
+2. Os quatro passam: sistema detecta jogo fechado (tranca), sem conceder os 50 pontos de galo
+3. Verificar: Quem tem menos pontos na mão vence e recebe a soma das mãos adversárias arredondada para baixo; totais 20 contra 37 → vencedora recebe 35 pontos
+4. Repetir com somas iguais: nenhuma dupla pontua pela tranca e o placar acumulado permanece inalterado
+5. Se a partida continuar, verificar que quem receber o 6-6 inicia a próxima raia com ele
 
 ---
 
@@ -298,12 +196,12 @@ mypy src/ --show-error-codes
 
 ## Próximos Passos
 
-Após validar o CLI básico:
+Durante a integração da GUI:
 
-1. **Testar cenários complexos**: 5 carroças iniciais, 6 carroças (vitória imediata)
-2. **Validar ramos laterais**: Criar mesa com 4 pontas preenchidas
-3. **Testar vitória da partida**: Atingir 200+ pontos
-4. **Implementar GUI**: Migrar para PyQt6 com estilo "mesa de bar"
+1. **Testar cenários complexos**: 5 carroças iniciais (50 pontos para a dupla somente se o jogador aceitar jogar; se recusar, recolher as 28 pedras, embaralhar e distribuir 7 por jogador sem conceder o bônus), 6 carroças (jogo normal, sem bônus ou recusa), 7 carroças na mão de um jogador (vitória automática da dupla)
+2. **Validar ramos laterais**: Abrir com 6-6; jogar 6-3 e 3-2 na esquerda mantém laterais bloqueadas; jogar 6-4 na direita libera as laterais; abrir uma delas com 6-1, usando o naipe da carroça inicial
+3. **Testar vitória da partida**: Atingir 200+ durante a raia sem encerrá-la; verificar vitória por pontuação somente após batida ou tranca e contabilização final
+4. **Validar GUI**: Completar uma partida na tela com o motor integrado
 
 ---
 
@@ -313,3 +211,10 @@ Após validar o CLI básico:
 - [Modelo de Dados](./data-model.md)
 - [Pesquisa Técnica](./research.md)
 - [Plano de Implementação](./plan.md)
+
+## Validar tempo e desconexão
+
+- Conferir contador de 20 segundos a cada turno.
+- Desconectar um participante durante uma partida e verificar que o computador assume sua posição, mão e dupla, sem reiniciar a partida.
+- Deixar o prazo expirar: verificar jogada automática válida ou passe obrigatório se não houver jogada. O humano conectado mantém controle nos turnos seguintes.
+- Reconectar o humano: verificar retomada no próximo turno que lhe couber, com a mão atual e sem desfazer jogadas do computador; conferir que somente o controlador vigente pode agir.

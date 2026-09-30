@@ -12,14 +12,15 @@
 |---------|---------|-------|
 | Linguagem | Python 3.12 | Especificado pelo usuário |
 | Testes | pytest | Padrão indústria, fixtures poderosas |
-| CLI | argparse | Sem dependências, simples para MVP |
 | Validação | Pydantic v2 | Type hints integrados, validação automática |
 | Linting | ruff + mypy | Rápido e estrito |
-| GUI (futuro) | PyQt6 | Melhor para estética "mesa de bar" |
+| Interface inicial | Web para computador | Navegador; frontend a definir, motor Python |
 
 ---
 
 ## Decisão 1: Estrutura de Dados para Mesa com 4 Pontas
+
+**Regra confirmada**: As duas pontas laterais saem da carroça inicial. Só ficam disponíveis após jogar pelo menos uma pedra em cada uma das duas pontas principais; a carroça inicial não conta como preenchimento desses ramos. Jogar várias pedras apenas em uma ponta principal não libera as laterais. A primeira pedra de cada lateral deve combinar com o naipe da carroça inicial.
 
 **Problema**: Como representar uma mesa que evolui de 1 ponta → 2 pontas → 4 pontas com ramos laterais condicionais?
 
@@ -169,20 +170,19 @@ class ProgressiveScorer:
 
 **Decisão**: Detectores dedicados com estado de passes consecutivos
 
+**Exceção — carroça final**: Na batida com carroça, a dupla recebe 20 pontos mais a pontuação das pontas da última jogada, se houver (soma múltipla de 5). Não se somam as mãos adversárias nesse caso. A pontuação das pontas deve ser creditada uma única vez.
+
+**Pontuação confirmada**: Na tranca e na batida normal (sem carroça final), a dupla vencedora recebe a soma dos valores das pedras restantes nas mãos dos dois adversários, arredondada para baixo ao múltiplo de 5 mais próximo: `pontos = (soma_adversária // 5) * 5`. Somar as duas mãos antes de arredondar; não incluir a mão do parceiro nem subtrair a soma da dupla vencedora.
+
 ```python
-class GaloDetector:
-    def __init__(self):
-        self._consecutive_passes = 0
-    
-    def record_pass(self):
-        self._consecutive_passes += 1
-    
-    def record_play(self):
-        self._consecutive_passes = 0
-    
-    def is_galo(self) -> bool:
-        """Galo ocorre quando todos os 4 jogadores passaram."""
-        return self._consecutive_passes >= 4
+# Passe geral é evento durante a raia, não condição de término.
+# Registrar autor da última jogada e passes dos outros três jogadores.
+# Confirmar que o último autor tem jogada antes de conceder passe geral.
+# Se os quatro passam, é jogo fechado (tranca), sem bônus de galo.
+# Passe comum: 20; segundo consecutivo: 0; passe geral: total de 50.
+# Ao confirmar passe geral, substituir os pontos de passe da sequência,
+# devolver a vez ao autor da última jogada e manter a raia em andamento.
+# Reiniciar sequência após jogada válida; não pontuar o mesmo evento duas vezes.
 
 class BatidaDetector:
     @staticmethod
@@ -192,70 +192,31 @@ class BatidaDetector:
 
 class TrancaResolver:
     @staticmethod
-    def resolve_tranca(players: list[Player]) -> Player:
-        """
-        Resolve tranca: ganha quem tem MENOS pontos na mão.
-        Empate: perde quem jogou por último.
-        """
-        player_scores = [(p, sum(p.get_hand_value())) for p in players]
-        min_score = min(score for _, score in player_scores)
-        winners = [p for p, s in player_scores if s == min_score]
-        
-        if len(winners) == 1:
-            return winners[0]
-        else:
-            # Empate: perdedor é quem jogou por último
-            return TrancaResolver._get_last_player(winners)
+    def resolve_tranca(pair_totals: dict[int, int]) -> tuple[int | None, dict[int, int]]:
+        """Recebe as somas brutas das mãos das duas duplas."""
+        if len(pair_totals) != 2:
+            raise ValueError("Tranca exige exatamente duas duplas")
+        points = {pair_id: 0 for pair_id in pair_totals}
+        if len(set(pair_totals.values())) == 1:
+            return None, points
+        winner = min(pair_totals, key=lambda pair_id: pair_totals[pair_id])
+        loser = next(pair_id for pair_id in pair_totals if pair_id != winner)
+        points[winner] = (pair_totals[loser] // 5) * 5
+        return winner, points
 ```
 
 **Razão**:
 - Cada condição isolada e testável
 - Estado de passes tracking simples
-- Lógica de desempate explícita
+- Empate na tranca não concede pontos a nenhuma dupla
 
 ---
 
-## Decisão 5: Biblioteca CLI
+## Decisão 5: Interface Gráfica Inicial
 
-**Problema**: Qual biblioteca usar para interface de linha de comando?
+A plataforma de entrega é web para computador: o jogador acessa a interface gráfica pelo navegador, sem instalar um aplicativo desktop. Solo e multiplayer usam essa mesma interface. O protótipo PyQt6 existente não é a interface de entrega. A mesa e as pedras terão estilo mesa de bar. O fluxo de jogo será operado por controles visuais; uma CLI de jogo não faz parte da entrega inicial. A interface web e sua integração com o motor ainda precisam ser implementadas.
 
-**Decisão**: argparse (padrão Python) para MVP
-
-**Razão**:
-- Zero dependências
-- Suficiente para comandos simples (start, play, pass, status)
-- Pode evoluir para `click` ou `typer` se necessário
-
-```python
-import argparse
-
-def create_cli():
-    parser = argparse.ArgumentParser(description='Domino Amazonense CLI')
-    subparsers = parser.add_subparsers(dest='command')
-    
-    # start command
-    subparsers.add_parser('start', help='Iniciar nova partida')
-    
-    # play command
-    play_parser = subparsers.add_parser('play', help='Jogar pedra')
-    play_parser.add_argument('piece', help='Peça no formato X-Y (ex: 3-5)')
-    
-    # pass command
-    subparsers.add_parser('pass', help='Passar a vez')
-    
-    # status command
-    subparsers.add_parser('status', help='Mostrar estado atual')
-    
-    # score command
-    subparsers.add_parser('score', help='Mostrar pontuação')
-    
-    return parser
-```
-
-**Alternativas consideradas**:
-- **click**: Mais elegante, mas requer dependência
-- **typer**: Moderno com type hints, mas overkill para MVP
-- **repl**: Boa para interatividade, mas complexo de implementar
+Implementar interface web ligada ao motor Python. Preservar o protótipo PyQt6 como referência histórica, sem torná-lo dependência do cliente web. Os controles visuais invocam casos de uso e recebem o estado atualizado; a interface não decide pontuação ou validade das jogadas. Há duas formas de participação, com o mesmo conjunto de regras e sempre quatro jogadores em duas duplas: solo (um humano e três jogadores controlados pelo computador, incluindo seu parceiro) e multiplayer (quatro pessoas, cada uma em seu próprio dispositivo). Não há alternância de pessoas no mesmo computador como modalidade prevista. Cada jogador vê apenas sua própria mão, a mesa e as informações públicas da partida. A mão do parceiro também é privada. Os jogadores controlados pelo computador devem decidir usando sua própria mão e as informações públicas, sem acesso às mãos alheias.
 
 ---
 
@@ -302,7 +263,7 @@ addopts = [
 
 [tool.coverage.run]
 source = ["src/domino"]
-omit = ["*/interface/*"]  # CLI pode ter cobertura menor inicialmente
+
 
 [tool.coverage.report]
 fail_under = 80
@@ -319,7 +280,7 @@ show_missing = true
 | Validação Jogadas | matches() + target_end | ✅ Definido |
 | Pontuação | ProgressiveScorer | ✅ Definido |
 | Condições Término | Detectores dedicados | ✅ Definido |
-| CLI | argparse | ✅ Definido |
+| Interface inicial | Web para computador | Plataforma definida; frontend a definir |
 | Testes | pytest, 100+ testes, 80% coverage | ✅ Definido |
 
 **Próximo passo**: Implementar Iteração 1 (entidades de domínio) seguindo o TDD.

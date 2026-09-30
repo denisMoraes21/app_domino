@@ -14,7 +14,7 @@
 - **Quina**: Naipe com 5 pontos
 - **Sena**: Naipe com 6 pontos
 - **Passe**: Impossibilidade jogada pelo jogador da vez
-- **Galo**: Todos os jogadores passam, inclusive o parceiro
+- **Galo (passe geral)**: Os outros três jogadores passam após uma jogada e seu autor pode jogar novamente; vale somente 50 pontos para a dupla da última jogada e devolve a vez ao mesmo jogador, sem encerrar a raia
 - **Gato**: Jogada indevida, ocasiona erro de contagem no jogo dominó
 - **Raia**: Jogo onde a pontuação mínima entre duplas é de 200 pontos
 - **Batida**: Ação onde o jogador da vez joga sua última pedra
@@ -28,12 +28,16 @@
 
 ### I. Desenvolvimento Primeiro em Python
 
-Todas as funcionalidades da aplicação devem ser implementadas em Python.
+O domínio e os serviços da aplicação permanecem em Python. A entrega será uma aplicação web acessada pelo navegador no computador; a tecnologia do frontend será definida no planejamento técnico.
 
 - Usar Python 3.11+ com type hints obrigatórios
 - Seguir PEP 8 e PEP 257 para estilo e documentação
 - Utilizar virtual environments (venv ou poetry) para isolamento de dependências
 - Bibliotecas devem ser autocontidas, testáveis independentemente e bem documentadas
+
+### Plataforma
+
+A plataforma de entrega é web para computador: o jogador acessa a interface gráfica pelo navegador, sem instalar um aplicativo desktop. Solo e multiplayer usam essa mesma interface. O protótipo PyQt6 existente não é a interface de entrega.
 
 ### II. Estilo Visual "Mesa de Bar"
 
@@ -89,10 +93,20 @@ Todas as decisões arquiteturais devem ser documentadas:
 
 ### Configuração de Jogadores
 
+Há duas formas de participação, com o mesmo conjunto de regras e sempre quatro jogadores em duas duplas: solo (um humano e três jogadores controlados pelo computador, incluindo seu parceiro) e multiplayer (quatro pessoas, cada uma em seu próprio dispositivo). Não há alternância de pessoas no mesmo computador como modalidade prevista.
+
+Cada jogador vê apenas sua própria mão, a mesa e as informações públicas da partida. A mão do parceiro também é privada. Os jogadores controlados pelo computador devem decidir usando sua própria mão e as informações públicas, sem acesso às mãos alheias.
+
+- Existe apenas um modo de jogo: dominó amazonense com 4 jogadores em 2 duplas. Simplex não faz parte do escopo.
+
 - 4 jogadores divididos em 2 duplas (2 jogadores por dupla)
 - Cada jogador recebe 7 pedras na distribuição inicial
 - O conjunto usado é o duplo-6 (28 pedras totais)
 - Partida disputada até 200 pontos ou superior
+
+### Mesa e Laterais
+
+As duas pontas laterais saem da carroça inicial. Só ficam disponíveis após jogar pelo menos uma pedra em cada uma das duas pontas principais; a carroça inicial não conta como preenchimento desses ramos. Jogar várias pedras apenas em uma ponta principal não libera as laterais. A primeira pedra de cada lateral deve combinar com o naipe da carroça inicial.
 
 ### Sistema de Pontuação
 
@@ -109,9 +123,15 @@ Todas as decisões arquiteturais devem ser documentadas:
 
 ### Movimentos Especiais e Pontuação
 
-- Batida normal (esvaziar as pedras): conta as pedras do oponente restantes
-- Iniciar com 5 carroças: 50 pontos imediato
-- Iniciar com 6 carroças: vitória imediata
+- Na batida com carroça, a dupla recebe 20 pontos mais a pontuação das pontas da última jogada, se houver (soma múltipla de 5). Não se somam as mãos adversárias nesse caso. A pontuação das pontas deve ser creditada uma única vez.
+
+- Batida normal (esvaziar as pedras): a dupla que bateu ganha a soma das pedras restantes dos dois adversários, arredondada para baixo ao múltiplo de 5 mais próximo
+- Iniciar com 5 carroças: o jogador pode aceitar ou recusar jogar. Se aceitar, sua dupla recebe 50 pontos no início. Se recusar, todos devolvem as 28 pedras, que são embaralhadas e distribuídas novamente (7 por jogador), sem conceder o bônus de 50 pontos.
+- Com exatamente 6 carroças na mão inicial, o jogador joga normalmente. Com 7 carroças na mão inicial de um jogador, sua dupla vence a partida automaticamente. A opção de recusa e o bônus de 50 pontos aplicam-se somente a exatamente 5 carroças.
+
+### Tempo e Continuidade
+
+Durante a partida, se um jogador humano perder a conexão, um jogador controlado pelo computador assume seu lugar, preservando mão, dupla e estado da partida. Cada jogada tem limite de 20 segundos. Ao esgotar os 20 segundos, o computador executa uma jogada válida pelo jogador naquele turno. Se não houver jogada válida, executa o passe conforme as regras do jogo. Para um humano ainda conectado, essa ação automática não transfere permanentemente o controle ao computador. Após reconectar, o humano retoma sua mesma posição no início do próximo turno que lhe couber, preservando mão, dupla e estado atual. A reconexão não desfaz jogadas já realizadas pelo computador nem interrompe o turno em andamento.
 
 ### Fluxo do Jogo
 
@@ -120,19 +140,21 @@ Todas as decisões arquiteturais devem ser documentadas:
 - Objetivo: marcar pontos jogando pedras ou esvaziar a mão para bater
 - Pedras devem combinar com as pontas disponíveis na mesa
 - Se não tiver jogada disponível (inclusive no início do jogo), o jogador passa
-- Ao passar por não ter jogada, a dupla adversária marca 20 pontos
-- Se TODOS os jogadores passarem em sequência, chama-se "galo"
-- Em caso de galo, a dupla adversária marca 50 pontos automaticamente
-- para raias posteriores, quem bateu na ultima rodada é que inicia a partida
+- O passe vale 20 pontos para a dupla adversária; o segundo passe consecutivo não pontua. Quando os outros três jogadores passam após uma jogada e seu autor tem jogada disponível, ocorre galo (passe geral): a sequência vale somente 50 pontos para a dupla da última jogada, sem acumular os 20 pontos de passe. A raia continua e a vez retorna ao jogador que fez a última jogada.
+- Após batida, quem bateu inicia a próxima raia. Após tranca, quem receber a carroça de sena (6-6) inicia a próxima raia com ela.
+
+- Se os quatro jogadores passam, é jogo fechado (tranca), não galo: a raia termina e não há bônus de 50 pontos de passe geral. O galo exige que o autor da última jogada possa jogar novamente após os passes dos outros três.
 
 ### Condições de Vitória
 
-- Partida (jogo longo) termina quando uma dupla atinge 200 pontos
+- Se, após batida ou jogo fechado e a contabilização final da raia, os placares acumulados das duas duplas forem iguais e de 200 pontos ou mais, jogar outra raia, preservando o placar. Repetir enquanto houver empate ao fim da raia; não encerrar no primeiro desempate durante a raia. A abertura segue a regra do encerramento anterior: após batida, o batido; após tranca, quem receber o 6-6.
+
+- Atingir ou ultrapassar 200 pontos durante a raia não encerra a partida. A vitória por pontuação só é verificada após a raia terminar por batida ou jogo fechado (tranca), com a pontuação final da raia contabilizada. Permanece a exceção já confirmada de vitória automática por 7 carroças.
 - Uma raia termina quando alguém "bate" (esvazia todas as pedras da mão)
 - Bater = não ter mais pedras em posse após jogar a última pedra
-- Ao bater, conta-se as pedras restantes dos adversários para pontuação
+- Na tranca e na batida normal (sem carroça final), a dupla vencedora recebe a soma dos valores das pedras restantes nas mãos dos dois adversários, arredondada para baixo ao múltiplo de 5 mais próximo: `pontos = (soma_adversária // 5) * 5`. Somar as duas mãos antes de arredondar; não incluir a mão do parceiro nem subtrair a soma da dupla vencedora.
 - Se ninguém bater e o jogo fechar (tranca), ganha quem tem menos pontos na mão
-- Em empate de pontos na mão de tranca, perde quem jogou por último
+- Se as somas das mãos das duas duplas forem iguais na tranca, nenhuma dupla recebe pontos por essa tranca, independentemente de quem jogou por último. Comparar as somas antes de qualquer arredondamento e preservar o placar já acumulado.
 - Pontuação é em conjunto com a dupla (pontua-se em conjunto, não individual)
 
 ## Restrições Adicionais
@@ -192,4 +214,8 @@ Constituição superseda todas as outras práticas do projeto.
 - Complexidade deve ser justificada
 - Esta constituição guia o desenvolvimento do projeto Domino Amazonense
 
-**Versão**: 1.0.0 | **Aprovada em**: 2026-09-30 | **Última Alteração**: 2026-09-30
+### Registro de alteração — 2026-09-30
+
+Definições confirmadas pelo responsável pelo projeto: modo único de quatro jogadores em duplas; bônus de cinco carroças condicionado à aceitação e nova distribuição das 28 pedras sem bônus em caso de recusa; galo (passe geral) vale somente 50 pontos para a última dupla que jogou e não encerra a raia; segundo passe consecutivo não pontua; abertura após tranca com 6-6; tranca e batida normal concedem a soma das mãos adversárias arredondada para baixo ao múltiplo de 5. Documentação e backlog atualizados; implementação do motor permanece pendente.
+
+**Versão**: 1.0.1 | **Aprovada em**: 2026-09-30 | **Última Alteração**: 2026-09-30

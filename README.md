@@ -15,7 +15,7 @@
 
 ## 🎯 Sobre o Projeto
 
-Domino Amazonense é uma implementação de linha de comando (CLI) do tradicional jogo de dominó praticado no Amazonas, onde **4 jogadores** divididos em **2 duplas** disputam até que uma delas atinja **200 pontos**.
+Domino Amazonense é um aplicativo gráfico em desenvolvimento do tradicional jogo de dominó praticado no Amazonas, onde **4 jogadores** divididos em **2 duplas** disputam com meta de **200 pontos**, verificando a vitória por pontuação somente ao final da raia.
 
 Esta aplicação foi desenvolvida seguindo os princípios de **Clean Architecture** e **TDD (Test Driven Development)**, com cobertura de testes superior a 80%, garantindo confiabilidade e facilidade de manutenção.
 
@@ -24,7 +24,7 @@ Esta aplicação foi desenvolvida seguindo os princípios de **Clean Architectur
 - **Regras Oficiais do Dominó Amazonense**: Implementação fiel das regras tradicionais
 - **Sistema de Pontuação Progressivo**: Soma das 4 pontas com múltiplos de 5
 - **Detecção Automática**: Batida, Galo, Tranca e condições de vitória
-- **Interface Intuitiva**: CLI amigável com feedback em tempo real
+- **Interface planejada**: mesa e pedras na tela, com controles visuais; acesso pelo navegador no computador
 - **Arquitetura Limpa**: Separação clara entre domínio, aplicação, infraestrutura e interface
 - **Código Testado**: Suite completa de testes com pytest
 - **Type Safety**: Type hints completos com mypy
@@ -34,12 +34,18 @@ Esta aplicação foi desenvolvida seguindo os princípios de **Clean Architectur
 
 ## 🎮 Regras do Jogo
 
+Há apenas um modo: **4 jogadores em 2 duplas**. A especificação Simplex foi retirada do escopo. As definições confirmadas pelo responsável pelo projeto prevalecem sobre referências divergentes.
+
 ### Visão Geral
 
 - **Jogadores**: 4 jogadores em 2 duplas (Jogadores 0 e 2 vs Jogadores 1 e 3)
 - **Pedras**: Conjunto duplo-6 (28 pedras, de 0-0 a 6-6)
-- **Objetivo**: Primeiro par a atingir 200 pontos ou mais vence a partida
+- **Objetivo**: Alcançar 200 pontos ou mais; a vitória por pontuação é verificada somente após batida ou jogo fechado. Atingir a meta durante a raia não interrompe o jogo.
 - **Direção**: Anti-horário (tradicional no Amazonas)
+
+### Abertura das Laterais
+
+As duas pontas laterais saem da carroça inicial. Só ficam disponíveis após jogar pelo menos uma pedra em cada uma das duas pontas principais; a carroça inicial não conta como preenchimento desses ramos. Jogar várias pedras apenas em uma ponta principal não libera as laterais. A primeira pedra de cada lateral deve combinar com o naipe da carroça inicial.
 
 ### Sistema de Pontuação
 
@@ -54,34 +60,43 @@ O jogo utiliza um **sistema progressivo de 4 pontas**:
 
 **Regra importante**: Só marca pontos quando a soma é **múltiplo de 5** (5, 10, 15, 20...).
 
-### Condições de Término de Raia
+### Eventos e Condições de Término de Raia
 
 #### Batida
 - Ocorre quando um jogador joga sua **última pedra**
-- A dupla adversária conta os pontos das pedras restantes na mão
-- **Bônus especial**: +20 pontos se a última pedra for uma **carroça** (doble)
+- Na batida normal (sem carroça final), a dupla que bateu recebe a soma das pedras restantes dos dois adversários, **arredondada para baixo ao múltiplo de 5 mais próximo**
+- **Batida com carroça**: Na batida com carroça, a dupla recebe 20 pontos mais a pontuação das pontas da última jogada, se houver (soma múltipla de 5). Não se somam as mãos adversárias nesse caso. A pontuação das pontas deve ser creditada uma única vez.
 
-#### Galo
-- Ocorre quando **todos os 4 jogadores** passam consecutivamente
-- A dupla adversária marca **50 pontos** automaticamente
+#### Passe e Galo (Passe Geral)
+- Passe comum: **20 pontos** para a dupla adversária.
+- O **segundo passe consecutivo não pontua**.
+- Se os outros três jogadores passam após uma jogada e seu autor consegue jogar novamente, ocorre o **galo**, ou passe geral.
+- A sequência vale **somente 50 pontos** para a dupla da última jogada, sem acumular os 20 de passe.
+- O galo **não encerra a raia**: quem jogou por último joga novamente.
 
 #### Tranca (Jogo Fechado)
-- Ocorre quando nenhum jogador tem pedras jogáveis (sem passes consecutivos)
+- Se os quatro jogadores passam, é jogo fechado (tranca), não galo: a raia termina e não há bônus de 50 pontos de passe geral. O galo exige que o autor da última jogada possa jogar novamente após os passes dos outros três.
 - **Vence** quem tem **menos pontos** na mão (soma conjunta da dupla)
-- A diferença de pontos é transferida para a dupla vencedora
-- Se a diferença não for múltipla de 5, **arredonda-se para baixo**
-- Em caso de **empate total** entre as duplas: nenhuma pontua, segue para próxima raia
-- Se ambas as duplas já tiverem **≥200 pontos** e empatarem: joga-se raia extra
+- A dupla vencedora recebe a **soma das mãos da dupla adversária**, arredondada para baixo ao múltiplo de 5 mais próximo
+- Somam-se as duas mãos antes de arredondar: por exemplo, 18 + 19 = 37 → **35 pontos**
+- Em caso de **igualdade na soma das mãos** das duplas, nenhuma recebe pontos pela tranca; o placar acumulado é preservado
+- Empate das mãos não é empate de placar: o encerramento da partida depende do placar acumulado ao final da raia.
+
+### Empate no Placar da Partida
+
+Se, após batida ou jogo fechado e a contabilização final da raia, os placares acumulados das duas duplas forem iguais e de 200 pontos ou mais, jogar outra raia, preservando o placar. Repetir enquanto houver empate ao fim da raia; não encerrar no primeiro desempate durante a raia. A abertura segue a regra do encerramento anterior: após batida, o batido; após tranca, quem receber o 6-6.
 
 ### Regras Especiais
 
 | Cenário | Regra |
 |---------|-------|
-| 5 carroças iniciais | Ganha **50 pontos** imediatos |
-| 6 carroças iniciais | **Vitória imediata** da partida |
+| Exatamente 5 carroças iniciais | O jogador pode aceitar ou recusar jogar; se aceitar, sua dupla ganha **50 pontos** no início. Se recusar, recolhem-se as 28 pedras para novo embaralhamento e distribuição, sem bônus |
+| 6 carroças iniciais | Joga normalmente |
+| 7 carroças iniciais na mão de um jogador | Sua dupla vence a partida **automaticamente** |
 | Dobro 0 (bola/ovo) | Valor 0, sem valor especial (carroça normal) |
 | Quem inicia 1ª raia | Jogador com o **6-6** na distribuição |
-| Quem inicia raias seguintes | Quem **bateu** na raia anterior |
+| Quem inicia após batida | Quem **bateu** na raia anterior |
+| Quem inicia após tranca | Quem receber a **carroça de sena (6-6)** inicia com ela |
 | Passe com jogada disponível | **Derrota imediata** para a dupla adversária |
 
 ---
@@ -132,67 +147,25 @@ mypy>=1.7.0            # Type checking
 
 ---
 
-## 🎮 Como Jogar
+## 🎮 Interface Web para Computador
 
-### Iniciar uma Nova Partida
+O jogador entra escolhendo um apelido, sem cadastro, login ou senha. No multiplayer, pode criar uma sala ou informar o código de uma sala existente.
 
-```bash
-python -m domino.interface.cli.main start
-```
+A plataforma de entrega é web para computador: o jogador acessa a interface gráfica pelo navegador, sem instalar um aplicativo desktop. Solo e multiplayer usam essa mesma interface. O protótipo PyQt6 existente não é a interface de entrega.
 
-### Comandos Disponíveis
+A primeira versão será jogada na tela: mesa, pedras, pontas disponíveis, turno e placar das duas duplas. Os controles permitirão escolher solo ou criar/entrar em sala, selecionar pedra e ponta, passar e responder à opção de cinco carroças. No multiplayer, a distribuição começa automaticamente quando as duplas estão completas.
 
-| Comando | Descrição | Exemplo |
-|---------|-----------|---------|
-| `play` | Jogar uma pedra na mesa | `play 3-5 LEFT` |
-| `pass` | Passar a vez (quando sem jogada) | `pass` |
-| `status` | Ver estado atual da mesa | `status` |
-| `score` | Ver pontuação das duplas | `score` |
-| `quit` | Encerrar a partida | `quit` |
+**Estado atual:** a GUI em `src/domino/gui/main.py` é um protótipo. A interface web ainda precisa ser criada e integrada ao motor; não há partida completa disponível. As instruções de execução serão validadas junto dessa integração.
 
-### Exemplo de Jogo
+Há duas formas de participação, com o mesmo conjunto de regras e sempre quatro jogadores em duas duplas: solo (um humano e três jogadores controlados pelo computador, incluindo seu parceiro) e multiplayer (quatro pessoas, cada uma em seu próprio dispositivo). Não há alternância de pessoas no mesmo computador como modalidade prevista.
 
-```
-========================================
-  Domino Amazonense
-========================================
-Nova partida iniciada!
+Cada jogador vê apenas sua própria mão, a mesa e as informações públicas da partida. A mão do parceiro também é privada. Os jogadores controlados pelo computador devem decidir usando sua própria mão e as informações públicas, sem acesso às mãos alheias.
 
-Dupla A (Jogadores 0 e 2): 0 pontos
-Dupla B (Jogadores 1 e 3): 0 pontos
+O multiplayer começa pela criação de uma sala. A sala reúne quatro jogadores humanos, cada um no navegador de seu computador, para uma partida em duas duplas. Ao criar a sala, o sistema gera e exibe um código. Os demais jogadores entram informando esse código na interface web. No multiplayer, os próprios jogadores escolhem suas duplas na sala antes do início da partida. Cada dupla deve ter exatamente dois jogadores; a partida só pode começar com as duas duplas completas. As duplas permanecem fixas durante a partida. Quando os quatro jogadores estiverem na sala e houver exatamente dois em cada dupla, o sistema embaralha e distribui automaticamente as 28 pedras, sete por jogador, sem comando do criador da sala. Aplicam-se as regras de cinco, seis e sete carroças antes da primeira jogada; na primeira raia, quem receber o 6-6 inicia jogando essa pedra.
 
-Raia 1 - Sua vez!
-Sua mão: [3-5, 6-6, 1-4, 2-2, 0-3, 5-5, 1-6]
+Durante a partida, se um jogador humano perder a conexão, um jogador controlado pelo computador assume seu lugar, preservando mão, dupla e estado da partida. Cada jogada tem limite de 20 segundos. Ao esgotar os 20 segundos, o computador executa uma jogada válida pelo jogador naquele turno. Se não houver jogada válida, executa o passe conforme as regras do jogo. Para um humano ainda conectado, essa ação automática não transfere permanentemente o controle ao computador. Após reconectar, o humano retoma sua mesma posição no início do próximo turno que lhe couber, preservando mão, dupla e estado atual. A reconexão não desfaz jogadas já realizadas pelo computador nem interrompe o turno em andamento.
 
-Comandos:
-  play <peça>  - Jogar pedra (ex: play 3-5 LEFT)
-  pass         - Passar a vez
-  status       - Ver estado da mesa
-  score        - Ver pontuação
-  quit         - Sair
-
->>> play 6-6 LEFT
-Jogador 0 jogou 6-6 na ponta LEFT
-Mesa: [12] (carroça inicial)
-Pontuação: Soma = 12 (não múltiplo de 5, sem pontos)
-
->>> status
-Mesa Atual:
-  Ponta Esquerda: 6
-  Ponta Direita: 6
-  Lateral Topo: (vazia)
-  Lateral Base: (vazia)
-  
-Pedras jogadas: 1
-Próximo jogador: Jogador 1
-
->>> score
-Pontuação da Partida:
-  Dupla A: 0 pontos
-  Dupla B: 0 pontos
-```
-
----
+Plataforma definida: navegador no computador. Entrada definida por código da sala. Pendente: alcance da rede.
 
 ## 🧪 Executar Testes
 
@@ -264,18 +237,21 @@ src/domino/
 │   │   ├── shuffler.py       # Embaralhamento Fisher-Yates
 │   │   └── dealer.py         # Distribuição inicial
 │   └── __init__.py
-└── interface/                 # Camada de Apresentação
-    └── cli/                  # Interface de linha de comando
-        ├── main.py           # Entry point com argparse
-        ├── commands.py       # Comandos do CLI
-        └── formatters.py     # Formatação de saída
+└── gui/                       # Camada de apresentação gráfica
+    ├── main.py                # Janela e entry point PyQt6
+    ├── controllers.py         # Integração planejada com casos de uso
+    └── widgets.py             # Componentes planejados de mesa e pedras
 
 tests/
-├── domain/                   # Testes de domínio
-├── application/              # Testes de aplicação
-├── infrastructure/           # Testes de infraestrutura
-└── interface/               # Testes de CLI
+├── domain/
+├── application/
+├── infrastructure/
+└── gui/                       # Testes planejados de interação gráfica
 ```
+
+A árvore acima é a arquitetura planejada; vários componentes ainda não existem.
+
+---
 
 ### Principais Entidades de Domínio
 

@@ -6,6 +6,34 @@
 
 ---
 
+## Identidade do Participante
+
+O jogador entra escolhendo um apelido, sem cadastro, login ou senha. No multiplayer, pode criar uma sala ou informar o código de uma sala existente.
+
+O apelido é o nome de exibição. Manter um identificador de sessão anônima independente, reconhecido pelo serviço, para preservar a posição e a mão na reconexão. Informar o mesmo apelido não é prova de identidade nem autoriza acesso à mão de outro participante.
+
+## Sala Multiplayer
+
+O multiplayer começa pela criação de uma sala. A sala reúne quatro jogadores humanos, cada um no navegador de seu computador, para uma partida em duas duplas. Ao criar a sala, o sistema gera e exibe um código. Os demais jogadores entram informando esse código na interface web. No multiplayer, os próprios jogadores escolhem suas duplas na sala antes do início da partida. Cada dupla deve ter exatamente dois jogadores; a partida só pode começar com as duas duplas completas. As duplas permanecem fixas durante a partida. Quando os quatro jogadores estiverem na sala e houver exatamente dois em cada dupla, o sistema embaralha e distribui automaticamente as 28 pedras, sete por jogador, sem comando do criador da sala. Aplicam-se as regras de cinco, seis e sete carroças antes da primeira jogada; na primeira raia, quem receber o 6-6 inicia jogando essa pedra.
+
+A sala identifica a sessão multiplayer e os participantes, com capacidade de quatro jogadores. A partida mantém o estado do jogo e as regras; a sala organiza o encontro dos participantes. O código identifica a sala para entrada dos demais jogadores e deve distinguir salas ativas. A sala inicia a distribuição automaticamente ao completar quatro jogadores com duas duplas de dois. O humano reconectado retoma sua posição no próximo turno que lhe couber. Na desconexão durante a partida, um computador assume a mesma posição e mão. A sala deve guardar as escolhas de dupla e impedir mais de dois participantes na mesma dupla.
+
+## Tempo e Substituição de Participante
+
+Durante a partida, se um jogador humano perder a conexão, um jogador controlado pelo computador assume seu lugar, preservando mão, dupla e estado da partida. Cada jogada tem limite de 20 segundos. Ao esgotar os 20 segundos, o computador executa uma jogada válida pelo jogador naquele turno. Se não houver jogada válida, executa o passe conforme as regras do jogo. Para um humano ainda conectado, essa ação automática não transfere permanentemente o controle ao computador. Após reconectar, o humano retoma sua mesma posição no início do próximo turno que lhe couber, preservando mão, dupla e estado atual. A reconexão não desfaz jogadas já realizadas pelo computador nem interrompe o turno em andamento.
+
+Registrar separadamente a identidade do jogador e quem controla sua posição (humano ou computador). Manter um prazo de turno de 20 segundos controlado pelo serviço da partida e compartilhado com a interface. A substituição não cria outra mão nem outra dupla.
+
+## Participação e Visões da Partida
+
+A plataforma de entrega é web para computador: o jogador acessa a interface gráfica pelo navegador, sem instalar um aplicativo desktop. Solo e multiplayer usam essa mesma interface. O protótipo PyQt6 existente não é a interface de entrega.
+
+Há duas formas de participação, com o mesmo conjunto de regras e sempre quatro jogadores em duas duplas: solo (um humano e três jogadores controlados pelo computador, incluindo seu parceiro) e multiplayer (quatro pessoas, cada uma em seu próprio dispositivo). Não há alternância de pessoas no mesmo computador como modalidade prevista.
+
+Cada jogador vê apenas sua própria mão, a mesa e as informações públicas da partida. A mão do parceiro também é privada. Os jogadores controlados pelo computador devem decidir usando sua própria mão e as informações públicas, sem acesso às mãos alheias.
+
+Adicionar tipo de participante (humano ou computador) ao jogador e identificação da sessão no multiplayer. A forma de participação não muda as regras de pontuação. A visão enviada a cada dispositivo deve conter sua mão e o estado público, sem serializar as mãos alheias.
+
 ## Visão Geral do Domínio
 
 ```
@@ -22,7 +50,7 @@
 │                        RAIA (Round)                          │
 │  - Mesa (Board) com 4 pontas                                │
 │  - Histórico de jogadas                                     │
-│  - Estado: INIT → BATIDA → GALO → TRANCA                   │
+│  - Estado: INIT → IN_PROGRESS → BATIDA/TRANCA                   │
 └─────────────────────────────────────────────────────────────┘
                               │
                               │ contém
@@ -147,7 +175,7 @@ player.has_playable_piece(board)  # False se nenhuma combinação
 **Regras**:
 - Sempre exatamente 2 jogadores
 - Pontuação é compartilhada
-- Em batida, conta-se pedras da dupla adversária
+- Na tranca e na batida normal (sem carroça final), a dupla vencedora recebe a soma dos valores das pedras restantes nas mãos dos dois adversários, arredondada para baixo ao múltiplo de 5 mais próximo: `pontos = (soma_adversária // 5) * 5`. Somar as duas mãos antes de arredondar; não incluir a mão do parceiro nem subtrair a soma da dupla vencedora.
 
 ---
 
@@ -164,7 +192,7 @@ player.has_playable_piece(board)  # False se nenhuma combinação
 | LATERAL_BOTTOM | Rama lateral inferior |
 
 **Regras**:
-- LATERAL_TOP e LATERAL_BOTTOM só disponíveis após MAIN_LEFT e MAIN_RIGHT preenchidas
+- As duas pontas laterais saem da carroça inicial. Só ficam disponíveis após jogar pelo menos uma pedra em cada uma das duas pontas principais; a carroça inicial não conta como preenchimento desses ramos. Jogar várias pedras apenas em uma ponta principal não libera as laterais. A primeira pedra de cada lateral deve combinar com o naipe da carroça inicial.
 
 ---
 
@@ -193,9 +221,9 @@ player.has_playable_piece(board)  # False se nenhuma combinação
 
 **Regras de Negócio**:
 1. Mesa inicia vazia
-2. Primeira pedra define MAIN_LEFT e MAIN_RIGHT (se doble) ou apenas 1 ponta
-3. Segunda pedra cria segunda ponta principal
-4. Após ambas principais preenchidas, laterais são desbloqueadas
+2. A carroça inicial oferece duas pontas principais para encaixe, ainda sem pedras adicionais em seus ramos
+3. Registrar separadamente se cada ramo principal já recebeu ao menos uma pedra além da carroça
+4. Liberar as duas laterais da carroça inicial somente quando ambos os ramos principais tiverem recebido pedras
 5. Máximo 4 pontas simultâneas
 
 **Estados da Mesa**:
@@ -208,17 +236,18 @@ EMPTY → ONE_END → TWO_ENDS → FOUR_ENDS (com laterais desbloqueadas)
 board = Board()
 board.is_empty()  # True
 
-board.play_piece(Piece(6, 6), EndType.MAIN_LEFT)  # Doble inicial
-board.get_end_value(EndType.MAIN_LEFT)   # 12 (soma dos dois lados: 6+6)
-board.get_available_ends()  # [MAIN_LEFT]
+board.play_piece(Piece(6, 6), EndType.MAIN_LEFT)  # Carroça inicial
+board.get_end_value(EndType.MAIN_LEFT)  # Naipe de encaixe: 6, não 12
+board.is_lateral_unlocked()  # False
 
 board.play_piece(Piece(6, 3), EndType.MAIN_LEFT)
-board.get_end_value(EndType.MAIN_RIGHT)  # 3
-board.get_available_ends()  # [MAIN_LEFT, MAIN_RIGHT]
+board.play_piece(Piece(3, 2), EndType.MAIN_LEFT)
+board.is_lateral_unlocked()  # False: direita ainda sem pedra adicional
 
-board.play_piece(Piece(3, 2), EndType.MAIN_RIGHT)
-board.is_lateral_unlocked()  # True
-board.get_available_ends()   # [MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTTOM]
+board.play_piece(Piece(6, 4), EndType.MAIN_RIGHT)
+board.is_lateral_unlocked()  # True: ambos os ramos receberam pedras
+board.play_piece(Piece(6, 1), EndType.LATERAL_TOP)  # Encaixa no 6 inicial
+board.get_end_value(EndType.LATERAL_TOP)  # 1
 ```
 
 ---
@@ -257,7 +286,11 @@ board.get_available_ends()   # [MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTT
 | current_player_id | int | ID do jogador da vez |
 | players | list[Player] | Todos os 4 jogadores |
 | play_history | list[PlayRecord] | Histórico de jogadas |
-| consecutive_passes | int | Contador de passes seguidos |
+| consecutive_passes | int | Contador de passes seguidos desde a última jogada; o segundo não pontua |
+| last_playing_player_id | Optional[int] | Autor da última jogada; recebe novamente a vez após passe geral |
+| pass_sequence_score | dict[int, int] | Pontos de passe atribuídos por dupla na sequência atual, a substituir pelo total de 50 se ocorrer passe geral |
+| last_playing_pair_id | Optional[int] | Dupla da última jogada válida; recebe os 50 pontos do galo |
+| initial_five_doubles_decision | Optional[bool] | None = aguardando decisão do jogador com 5 carroças; True = aceita; False = recusa |
 | state | RoundState | Estado atual da raia |
 | winner_pair_id | Optional[int] | ID da dupla vencedora (se encerrada) |
 
@@ -266,8 +299,8 @@ board.get_available_ends()   # [MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTT
 |--------|---------|-----------|
 | `start() -> None` | None | Inicia raia (distribui pedras) |
 | `play_piece(piece: Piece) -> Score` | Score | Executa jogada e retorna pontuação |
-| `pass_turn() -> int` | int | Executa passe, retorna pontos adversários (20) |
-| `check_end_conditions() -> Optional[RoundEndReason]` | RoundEndReason or None | Verifica batida/galo/tranca |
+| `pass_turn() -> dict[int, int]` | dict | Retorna ajustes de placar por dupla: passe comum 20, segundo passe 0, passe geral total 50 com reversão dos pontos de passe da sequência |
+| `check_end_conditions() -> Optional[RoundEndReason]` | RoundEndReason or None | Verifica batida/tranca; galo é evento durante a raia |
 | `calculate_round_score() -> dict` | dict | Calcula pontuação final da raia |
 | `get_current_player() -> Player` | Player | Jogador da vez atual |
 | `next_player() -> None` | None | Avança para próximo jogador |
@@ -279,15 +312,21 @@ board.get_available_ends()   # [MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTT
 | DEALT | Pedras distribuídas, aguardando primeira jogada |
 | IN_PROGRESS | Jogadas sendo feitas |
 | BATIDA | Alguém esvaziou a mão |
-| GALO | Todos os 4 jogadores passaram |
 | TRANCA | Jogo bloqueado (sem jogadas possíveis) |
 
 **Condições de Término**:
-1. **BATIDA**: Jogador joga última pedra (hand vazia). Se for carroça, bônus de 20 pontos.
-2. **GALO**: 4 passes consecutivos
-3. **TRANCA**: Nenhum jogador tem jogada válida (não é galo)
+1. **BATIDA**: Jogador joga última pedra (hand vazia). Na batida com carroça, a dupla recebe 20 pontos mais a pontuação das pontas da última jogada, se houver (soma múltipla de 5). Não se somam as mãos adversárias nesse caso. A pontuação das pontas deve ser creditada uma única vez.
+2. **TRANCA**: Nenhum dos quatro jogadores tem jogada válida.
+
+**Evento durante a raia — passe geral (galo)**: O passe vale 20 pontos para a dupla adversária; o segundo passe consecutivo não pontua. Quando os outros três jogadores passam após uma jogada e seu autor tem jogada disponível, ocorre galo (passe geral): a sequência vale somente 50 pontos para a dupla da última jogada, sem acumular os 20 pontos de passe. A raia continua e a vez retorna ao jogador que fez a última jogada. O evento não altera `RoundState` para um estado terminal. Se os quatro jogadores passam, é jogo fechado (tranca), não galo: a raia termina e não há bônus de 50 pontos de passe geral. O galo exige que o autor da última jogada possa jogar novamente após os passes dos outros três.
 
 ---
+
+### Cálculo da contagem final da raia
+
+Na tranca e na batida normal (sem carroça final), a dupla vencedora recebe a soma dos valores das pedras restantes nas mãos dos dois adversários, arredondada para baixo ao múltiplo de 5 mais próximo: `pontos = (soma_adversária // 5) * 5`. Somar as duas mãos antes de arredondar; não incluir a mão do parceiro nem subtrair a soma da dupla vencedora. O resultado é creditado ao placar da dupla vencedora.
+
+Se as somas das mãos das duas duplas forem iguais na tranca, nenhuma dupla recebe pontos por essa tranca, independentemente de quem jogou por último. Comparar as somas antes de qualquer arredondamento e preservar o placar já acumulado. Nesse caso, `winner_pair_id = None` e `scores_awarded = {0: 0, 1: 0}`. A batida com carroça segue a exceção de 20 pontos mais as pontas, sem contar mãos adversárias.
 
 ### 8. Match (Partida)
 
@@ -307,8 +346,8 @@ board.get_available_ends()   # [MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTT
 |--------|---------|-----------|
 | `start() -> None` | None | Inicia primeira raia |
 | `start_next_round() -> Round` | Round | Inicia próxima raia |
-| `check_match_victory() -> Optional[int]` | int or None | Retorna ID da dupla vencedora (se >= 200) |
-| `is_finished() -> bool` | bool | True se alguma dupla >= 200 pontos |
+| `check_match_victory() -> Optional[int]` | int or None | Verifica vitória por pontuação após batida/tranca e contagem final; durante a raia, atingir 200 não basta |
+| `is_finished() -> bool` | bool | True quando o estado da partida é FINISHED; não apenas por atingir 200 durante a raia |
 | `get_winner() -> Optional[int]` | int or None | ID da dupla vencedora |
 | `get_scoreboard() -> dict` | dict | Mapa {pair_id: score} |
 
@@ -320,9 +359,12 @@ board.get_available_ends()   # [MAIN_LEFT, MAIN_RIGHT, LATERAL_TOP, LATERAL_BOTT
 | FINISHED | Partida encerrada (vencedor definido) |
 
 **Regras**:
-- Vitória ao atingir >= 200 pontos ao final de uma raia
-- Quem bateu inicia próxima raia
+- Vitória ao atingir >= 200 pontos ao final de uma raia; vitória automática também ocorre se um jogador receber 7 carroças na distribuição inicial
+- Após batida, quem bateu inicia a próxima raia. Após tranca, quem receber o 6-6 inicia com essa pedra.
+- Com exatamente 6 carroças na mão inicial, o jogador joga normalmente. Com 7 carroças na mão inicial de um jogador, sua dupla vence a partida automaticamente. A opção de recusa e o bônus de 50 pontos aplicam-se somente a exatamente 5 carroças.
+- Cinco carroças iniciais exigem decisão de aceitar ou recusar pelo jogador; somente a aceitação concede 50 pontos à sua dupla. Se recusar, todos devolvem as 28 pedras, que são embaralhadas e distribuídas novamente (7 por jogador), sem conceder o bônus de 50 pontos. A decisão pertence à distribuição atual e deve ser reiniciada após a redistribuição.
 - Partida pode ter múltiplas raias
+- Se, após batida ou jogo fechado e a contabilização final da raia, os placares acumulados das duas duplas forem iguais e de 200 pontos ou mais, jogar outra raia, preservando o placar. Repetir enquanto houver empate ao fim da raia; não encerrar no primeiro desempate durante a raia. A abertura segue a regra do encerramento anterior: após batida, o batido; após tranca, quem receber o 6-6.
 
 ---
 
@@ -335,7 +377,6 @@ class RoundState(Enum):
     DEALT = auto()
     IN_PROGRESS = auto()
     BATIDA = auto()
-    GALO = auto()
     TRANCA = auto()
 ```
 
@@ -351,7 +392,6 @@ class MatchState(Enum):
 ```python
 class RoundEndReason(Enum):
     BATIDA = auto()
-    GALO = auto()
     TRANCA = auto()
 ```
 
@@ -377,7 +417,7 @@ class PiecePlayedEvent:
 class RoundEndedEvent:
     round_number: int
     end_reason: RoundEndReason
-    winner_pair_id: int
+    winner_pair_id: int | None  # None em tranca empatada
     scores_awarded: dict[int, int]  # {pair_id: points}
 ```
 

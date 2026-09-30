@@ -4,7 +4,9 @@
 
 **Created**: 2026-09-30
 
-**Status**: Draft
+**Status**: Retirada do escopo
+
+> Decisão do responsável pelo projeto em 2026-09-30: existe apenas um modo, com 4 jogadores em 2 duplas, definido em [001-dominio-amazonense](../001-dominio-amazonense/spec.md). O conteúdo abaixo é histórico e não deve orientar implementação ou testes.
 
 **Input**: aplicação de dominó para dois jogadores com peças tradicionais, embaralhar, distribuir, validar jogadas, comprar/passar, encerrar rodada e calcular pontuação
 
