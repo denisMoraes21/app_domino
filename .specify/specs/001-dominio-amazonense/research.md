@@ -129,7 +129,7 @@ class ProgressiveScorer:
     def calculate_score(board: DominoBoard) -> int:
         """
         Calcula pontuação baseada no estado da mesa:
-        - 1 peça (carroça única): valor da carroça
+        - 1 peça (carroça única): soma dos dois lados da carroça (ex: 6-6 = 12)
         - 2 peças: carroça + ponta jogada
         - 3-4 peças: pontas opostas + laterais (0 se vazias)
         - 5+ peças: soma completa das 4 pontas
@@ -140,8 +140,9 @@ class ProgressiveScorer:
         filled_ends = sum(1 for v in ends if v > 0 or board.is_end_filled(end))
         
         if filled_ends == 1:
-            # Carroça única
-            return next(v for v in ends if v > 0)
+            # Carroça única = soma dos dois lados
+            caroca = next(p for p in board._pieces_played if p.is_doble())
+            return caroca.total()  # side_a + side_b
         elif filled_ends == 2:
             # Duas pontas (carroça + primeira jogada)
             return sum(v for v in ends if v > 0)

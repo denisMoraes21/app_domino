@@ -55,6 +55,7 @@ Como jogador, quero poder passar a vez quando não tenho pedras compatíveis par
 1. **DADO** que o jogador não tem pedras compatíveis com as pontas, **QUANDO** ele passa, **ENTÃO** a dupla adversária marca 20 pontos e a vez muda
 2. **DADO** que é o início do jogo e o jogador não tem 6-6 nem pedras para começar, **QUANDO** ele passa, **ENTÃO** a dupla adversária marca 20 pontos
 3. **DADO** que TODOS os jogadores passam em sequência, **QUANDO** ocorre o "galo", **ENTÃO** a dupla adversária marca 50 pontos automaticamente
+4. **DADO** que o jogador tem pedras jogáveis, **QUANDO** ele tenta passar, **ENTÃO** o sistema rejeita o passe e anuncia vitória da dupla adversária
 
 ---
 
@@ -70,7 +71,8 @@ Como jogador, quero poder vencer a raia jogando todas as minhas pedras até esva
 
 1. **DADO** que o jogador tem apenas 1 pedra na mão, **QUANDO** ele joga essa pedra, **ENTÃO** ele bate e a raia termina
 2. **DADO** que o jogador bate, **QUANDO** a raia termina, **ENTÃO** são contadas as pedras restantes dos adversários para pontuação
-3. **DADO** que o jogador bate com a pedra nas duas pontas simultaneamente ("Lá e Lô"), **QUANDO** ocorre a batida, **ENTÃO** aplica-se o bônus adicional
+3. **DADO** que o jogador bate com uma carroça (doble) como última pedra, **QUANDO** ocorre a batida, **ENTÃO** recebe bônus de 20 pontos adicionais
+4. **DADO** que o jogador bate com a pedra nas duas pontas simultaneamente ("Lá e Lô"), **QUANDO** ocorre a batida, **ENTÃO** aplica-se o bônus adicional
 
 ---
 
@@ -110,9 +112,12 @@ Como jogador, quero que o sistema determine o vencedor de uma raia travada quem 
 
 ### Session 2026-09-30
 
-- Q: Como funciona o sistema de "4 pontas" para pontuação? → A: Pontuação sempre soma 4 pontas; não preenchidas valem 0. Início: carroça única (soma = valor carroça). 2ª pedra: soma = carroça + ponta jogada. 3ª/4ª pedras (laterais): soma = pontas opostas + laterais (0 se vazias). 5ª+: soma completa das 4 pontas. Somente após 2 pontas preenchidas outros jogadores podem criar ramos laterais.
+- Q: Como funciona o sistema de "4 pontas" para pontuação? → A: Pontuação sempre soma 4 pontas; não preenchidas valem 0. Início: carroça única (soma = soma dos dois lados da carroça, ex: 6-6 = 12). 2ª pedra: soma = carroça + ponta jogada. 3ª/4ª pedras (laterais): soma = pontas opostas + laterais (0 se vazias). 5ª+: soma completa das 4 pontas. Somente após 2 pontas preenchidas outros jogadores podem criar ramos laterais. Só marca pontos se a soma for múltiplo de 5.
 - Q: A aplicação é para quantos jogadores? → A: 4 jogadores divididos em 2 duplas, conforme regras oficiais do dominó amazonense.
 - Q: Qual é o valor do dobro 0 (bola/ovo) para pontuação? → A: Valor 0, não tem valor especial - é uma carroça como qualquer outra.
+- Q: Como funciona a resolução de tranca e empates? → A: Maior soma de pontos na mão perde. A diferença é repassada como pontos para a dupla vencedora. Se ambas as duplas já tiverem 200+ pontos e empatarem na tranca, joga-se mais uma raia. Empates subsequentes permanecem até desempatar. Se a diferença não for múltiplo de 5, arredonda-se para baixo. Em caso de empate total de pontos nas duas duplas, nenhuma dupla pontua e segue para próxima raia.
+- Q: Quem começa a primeira raia quando ninguém tem 6-6? → A: Isso não acontece - o 6-6 sempre será distribuído aleatoriamente entre os 4 jogadores no início, e quem recebe o 6-6 começa.
+- Q: Como funciona quem inicia cada raia? → A: Primeira raia: quem tem o 6-6 inicia. Raias posteriores: quem bateu na raia anterior inicia a próxima. Se o batido não tiver carroça para iniciar (passou na raia anterior), a vez é para o próximo jogador na sequência.
 
 ---
 
@@ -120,14 +125,19 @@ Como jogador, quero que o sistema determine o vencedor de uma raia travada quem 
 
 - O que acontece quando um jogador inicia com 5 carroças? → Ganha 50 pontos imediatos
 - O que acontece quando um jogador inicia com 6 carroças? → Vitória imediata da partida
-- Como é determinado quem começa em raias posteriores? → Quem bateu na última rodada inicia
+- Como é determinado quem começa em raias posteriores? → Quem bateu na última rodada inicia; se não tiver carroça para iniciar (passou), vez passa para o próximo
 - Como funciona o dobro 0 (bola/ovo)? → Valor 0, sem valor especial - trata-se como carroça normal
+- Como funciona a resolução de tranca e empates? → Maior soma de pontos na mão perde. A diferença é repassada como pontos para a dupla vencedora. Se ambas as duplas já tiverem 200+ pontos e empatarem na tranca, joga-se mais uma raia. Empates subsequentes permanecem até desempatar. Se a diferença não for múltiplo de 5, arredonda-se para baixo. Em caso de empate total de pontos nas duas duplas, nenhuma dupla pontua.
+- Quem começa a primeira raia? → Quem recebe o 6-6 na distribuição inicial (aleatória entre os 4 jogadores)
+- O que acontece se jogador passa tendo jogada válida? → Sistema rejeita passe e dupla adversária vence imediatamente
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST validar se uma pedra pode ser jogada comparando com as pontas da mesa
+- **FR-001.1**: System MUST exigir que jogador especifique a ponta alvo ao jogar (ex: "play 3-5 LEFT")
+- **FR-001.2**: System MUST detectar e impedir passe se jogador tiver jogada válida disponível
 - **FR-002**: System MUST somar as pontas da mesa para pontuação: início (carroça única = seu valor), 2ª pedra (carroça + ponta), 3ª/4ª pedras (laterais valem 0 se vazias), 5ª+ pedras (4 pontas completas)
 - **FR-003**: System MUST marcar pontos apenas quando soma das pontas (incluindo zeros de lados vazios) for múltiplo de 5
 - **FR-004**: System MUST calcular pontos como igual à soma quando divisível por 5
@@ -138,13 +148,17 @@ Como jogador, quero que o sistema determine o vencedor de uma raia travada quem 
 - **FR-008**: System MUST marcar 50 pontos automaticamente em caso de galo
 - **FR-009**: System MUST detectar batida quando jogador joga sua última pedra
 - **FR-010**: System MUST contar pedras restantes dos adversários ao final de raia por batida
+- **FR-010.5**: System MUST conceder bônus de 20 pontos quando jogador bate com carroça (doble) como última pedra
 - **FR-011**: System MUST verificar vitória da partida ao final de cada raia quando dupla atinge 200+ pontos
-- **FR-012**: System MUST resolver tranca comparando pontos nas mãos dos jogadores
-- **FR-013**: System MUST definir perdedor de tranca empatada como quem jogou por último
-- **FR-014**: System MUST determinar início da partida com jogador que tem 6-6 ou pedra mais alta
-- **FR-015**: System MUST determinar início de raias posteriores com quem bateu na rodada anterior
+- **FR-012**: System MUST resolver tranca comparando soma conjunta de pontos nas mãos de cada dupla (maior soma perde)
+- **FR-013**: System MUST transferir diferença de pontos da dupla perdedora para a vencedora em caso de tranca (arredondar para baixo se não for múltiplo de 5)
+- **FR-014**: System MUST determinar início da partida com jogador que recebe o 6-6 na distribuição aleatória das 28 pedras
+- **FR-015**: System MUST determinar início de raias posteriores com quem bateu na rodada anterior. Se o batido não tiver carroça para iniciar, a vez passa para o próximo jogador na sequência.
 - **FR-016**: System MUST verificar bonus de 50 pontos quando jogador inicia com 5 carroças
 - **FR-017**: System MUST verificar vitória imediata quando jogador inicia com 6 carroças
+- **FR-018**: System MUST jogar raia extra se ambas duplas ≥200 pontos e empatarem em tranca
+- **FR-019**: System MUST continuar raias extras até desempatar empate em tranca com ambas ≥200 pontos
+- **FR-020**: System MUST distribuir 28 pedras aleatoriamente entre 4 jogadores (7 pedras cada) no início
 
 ### Key Entities *(include if feature involves data)*
 
